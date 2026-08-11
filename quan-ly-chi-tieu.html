@@ -1,0 +1,2234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Ledger — Expense manager</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+<style>
+:root{
+  --paper:#EEF0F6; --card:#FFFFFF; --ink:#14161F; --ink2:#4A5163; --muted:#868DA1;
+  --line:#DCE0EC; --line2:#EBEEF5;
+  --indigo:#2B3A8F; --indigo-2:#3F51B8; --indigo-soft:#E5E9FB;
+  --out:#C33F4C; --out-soft:#FBE8EA;
+  --in:#0F7A57; --in-soft:#DCF1E9;
+  --move:#6B54C6; --move-soft:#EBE6FB;
+  --warn:#A96700; --warn-soft:#FBEEDA;
+  --f-body:'Be Vietnam Pro',ui-sans-serif,system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+  --f-disp:'Bricolage Grotesque','Be Vietnam Pro',ui-sans-serif,system-ui,sans-serif;
+  --r:14px; --r-s:10px; --r-l:20px;
+  --nav-h:64px;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;padding:0}
+body{
+  background:var(--paper); color:var(--ink); font-family:var(--f-body);
+  font-size:15px; line-height:1.45; -webkit-font-smoothing:antialiased;
+  overscroll-behavior-y:none;
+}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer;border:none;background:none;padding:0}
+.num{font-family:var(--f-disp);font-variant-numeric:tabular-nums;letter-spacing:-.015em}
+.mono{font-variant-numeric:tabular-nums}
+
+/* ---------- shell ---------- */
+.app{min-height:100dvh;display:flex;flex-direction:column}
+.rail{display:none}
+.main{flex:1;width:100%;max-width:1120px;margin:0 auto;padding:0 16px calc(var(--nav-h) + env(safe-area-inset-bottom) + 28px)}
+
+.topbar{position:sticky;top:0;z-index:30;background:rgba(238,240,246,.88);backdrop-filter:blur(12px);
+  border-bottom:1px solid var(--line);margin:0 -16px 14px;padding:10px 16px}
+.topbar-in{max-width:1120px;margin:0 auto;display:flex;align-items:center;gap:10px}
+.brand{display:flex;align-items:center;gap:8px;font-family:var(--f-disp);font-weight:800;font-size:17px;letter-spacing:-.02em}
+.brand em{font-style:normal;color:var(--indigo)}
+.mswitch{margin-left:auto;display:flex;align-items:center;gap:2px;background:var(--card);border:1px solid var(--line);border-radius:999px;padding:3px}
+.mswitch button{width:30px;height:30px;border-radius:999px;display:grid;place-items:center;color:var(--ink2)}
+.mswitch button:hover{background:var(--line2)}
+.mswitch button:disabled{opacity:.3;cursor:default}
+.mswitch .lbl{font-size:13px;font-weight:600;padding:0 8px;white-space:nowrap;font-variant-numeric:tabular-nums}
+.iconbtn{width:34px;height:34px;border-radius:999px;display:grid;place-items:center;color:var(--ink2);border:1px solid var(--line);background:var(--card)}
+.iconbtn:hover{background:var(--line2)}
+
+/* ---------- bottom nav ---------- */
+.nav{position:fixed;left:0;right:0;bottom:0;z-index:40;height:calc(var(--nav-h) + env(safe-area-inset-bottom));
+  padding-bottom:env(safe-area-inset-bottom);background:var(--card);border-top:1px solid var(--line);
+  display:grid;grid-template-columns:repeat(5,1fr);align-items:center}
+.nav button{height:var(--nav-h);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;
+  font-size:10.5px;font-weight:600;color:var(--muted);letter-spacing:.01em}
+.nav button.on{color:var(--indigo)}
+.nav .fab{position:relative}
+.nav .fab i{display:grid;place-items:center;width:48px;height:48px;border-radius:16px;background:var(--indigo);color:#fff;
+  box-shadow:0 6px 16px rgba(43,58,143,.28);transition:transform .12s ease}
+.nav .fab:active i{transform:scale(.93)}
+
+/* ---------- cards ---------- */
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
+.card + .card{margin-top:12px}
+.pad{padding:14px}
+.sec-h{display:flex;align-items:baseline;gap:8px;margin:20px 2px 9px}
+.sec-h h2{font-family:var(--f-disp);font-size:15px;font-weight:700;margin:0;letter-spacing:-.01em}
+.sec-h .sub{font-size:12px;color:var(--muted);margin-left:auto}
+.eyebrow{font-size:10.5px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--muted)}
+
+/* ---------- vessel (signature) ---------- */
+.vessel{position:relative;height:4px;border-radius:3px;background:var(--line2);overflow:hidden}
+.vessel .fill{position:absolute;inset:0 auto 0 0;background:var(--indigo);transition:width .5s cubic-bezier(.2,.8,.2,1)}
+.vessel .fill.low{background:var(--out)}
+.vessel.md{height:6px;border-radius:4px}
+.vessel-legend{display:flex;justify-content:space-between;font-size:10.5px;color:var(--muted);margin-top:5px}
+
+/* ---------- rows ---------- */
+.row{display:flex;align-items:center;gap:11px;padding:11px 14px;border-top:1px solid var(--line2);width:100%;text-align:left}
+.row:first-child{border-top:none}
+.row-b{flex:1;min-width:0}
+.row-t{font-weight:600;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row-s{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.amt{font-family:var(--f-disp);font-variant-numeric:tabular-nums;font-weight:700;letter-spacing:-.02em;white-space:nowrap}
+.amt.out{color:var(--out)} .amt.in{color:var(--in)} .amt.move{color:var(--move)}
+.amt.sub{font-size:15px;font-weight:600;letter-spacing:-.015em;color:var(--ink2)}
+.amt.sub.neg{color:var(--out);font-weight:700}
+/* account row = two separate hit zones: edit (left) / expand (right) */
+.row.acc-row{padding:0;gap:0}
+.acc-row + .row{border-top-color:var(--line)}
+.acc-name .row-t{font-size:15.5px;font-weight:700;letter-spacing:-.015em}
+.acc-row .row-s{font-size:11.5px}
+.acc-toggle .amt{font-size:15.5px;font-weight:700;color:var(--ink)}
+.cat-row{padding-left:30px}
+.trail{width:24px;height:24px;display:inline-flex;align-items:center;justify-content:center;
+  flex:none;color:var(--muted);position:relative}
+.trail::after{content:'';position:absolute;inset:-9px}
+.cat-ic{color:var(--muted);flex:none;display:inline-flex;padding:8px;margin:-8px 0}
+.cat-row{cursor:pointer}
+.topbar-t{flex:1;min-width:0;font-family:var(--f-disp);font-size:16px;font-weight:700;
+  letter-spacing:-.018em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.main.sub{padding-bottom:calc(118px + env(safe-area-inset-bottom))}
+.fixed-cta{position:fixed;left:0;right:0;bottom:0;z-index:35;
+  padding:12px 16px calc(12px + env(safe-area-inset-bottom));
+  background:rgba(238,240,246,.92);backdrop-filter:blur(12px);border-top:1px solid var(--line)}
+.fixed-cta .btn{display:flex;max-width:1120px;margin:0 auto}
+.steps{display:flex;gap:5px;margin:2px 0 15px}
+.steps i{flex:1;height:3px;border-radius:2px;background:var(--line);display:block}
+.steps i.on{background:var(--indigo)}
+.step-h{font-family:var(--f-disp);font-size:18px;font-weight:800;letter-spacing:-.025em;margin:0 0 3px}
+.step-s{font-size:13px;color:var(--muted);margin:0 0 14px;line-height:1.45}
+.tot{display:flex;align-items:baseline;gap:10px}
+.tot .k{font-size:12.5px;font-weight:600;color:var(--ink2)}
+.tot .v{margin-left:auto;font-family:var(--f-disp);font-weight:800;font-size:17px;
+  letter-spacing:-.025em;font-variant-numeric:tabular-nums}
+.tot + .tot{margin-top:9px}
+.fixed-cta .cta-row{display:flex;gap:8px;max-width:1120px;margin:0 auto}
+.fixed-cta .cta-sum{display:flex;align-items:baseline;gap:10px;max-width:1120px;margin:0 auto 10px;
+  font-size:12.5px;font-weight:600;color:var(--ink2)}
+.fixed-cta .cta-sum b{margin-left:auto;font-family:var(--f-disp);font-size:18px;font-weight:800;
+  letter-spacing:-.028em;font-variant-numeric:tabular-nums}
+.allocbar{position:relative;display:flex;gap:1px;height:7px;border-radius:4px;overflow:hidden;
+  background:var(--line);max-width:1120px;margin:0 auto 10px}
+.allocbar i{display:block;height:100%;transition:width .25s ease}
+.allocbar .over{position:absolute;top:0;bottom:0;width:2px;background:var(--out);border-radius:0}
+.sec-h .gdot{width:9px;height:9px;border-radius:3px;flex:none;align-self:center}
+.fixed-cta .cta-row .btn{margin:0}
+.warn-card{border-color:var(--warn)!important;background:var(--warn-soft)}
+.figs{display:flex;gap:24px;flex-wrap:wrap}
+.figs > div{display:flex;flex-direction:column;gap:1px}
+.figs .k{font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.figs b{font-family:var(--f-disp);font-size:15px;font-weight:700;letter-spacing:-.022em;font-variant-numeric:tabular-nums}
+.figs b.o{color:var(--out)} .figs b.i{color:var(--in)}
+.figs.split{gap:0}
+.figs.split > div{flex:1;min-width:118px;padding-right:15px}
+.figs.split > div + div{border-left:1px solid var(--line2);padding-left:15px;padding-right:0}
+.figs .dlt{font-size:11px;font-weight:600;margin-top:1px}
+.cat-row .row-s{line-height:1.3}
+.cat-row .vessel{margin-top:6px}
+.acc-edit{flex:1;min-width:0;display:flex;align-items:center;gap:11px;padding:14px 6px 14px 14px;text-align:left}
+.acc-toggle{flex:none;display:flex;align-items:center;gap:8px;padding:14px 14px 14px 6px}
+.acc-name{display:flex;align-items:center;gap:5px;min-width:0}
+.acc-name .row-t{min-width:0;overflow:hidden;text-overflow:ellipsis}
+.acc-ic{color:var(--muted);display:inline-flex;flex:none}
+
+.dot{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;flex:none;font-size:12px;font-weight:700}
+.dot.out{background:var(--out-soft);color:var(--out)}
+.dot.in{background:var(--in-soft);color:var(--in)}
+.dot.move{background:var(--move-soft);color:var(--move)}
+.dot.n{background:var(--indigo-soft);color:var(--indigo)}
+
+/* ---------- chips / pills ---------- */
+.sec-h .act{margin-left:auto;color:var(--indigo);font-size:13px;font-weight:600;
+  background:none;border:none;padding:0}
+.sec-h .act:hover{text-decoration:underline}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{border:1px solid var(--line);background:var(--card);border-radius:999px;padding:5px 11px;font-size:12.5px;font-weight:500;color:var(--ink2)}
+.chip.on{background:var(--indigo);border-color:var(--indigo);color:#fff}
+.pill{display:inline-flex;align-items:center;gap:4px;border-radius:999px;padding:2px 8px;font-size:11px;font-weight:600}
+.pill.ok{background:var(--in-soft);color:var(--in)}
+.pill.wait{background:var(--line2);color:var(--muted)}
+.pill.due{background:var(--warn-soft);color:var(--warn)}
+
+/* ---------- buttons ---------- */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;border-radius:11px;padding:11px 16px;
+  font-weight:600;font-size:14px;border:1px solid transparent;transition:filter .12s}
+.btn:active{filter:brightness(.94)}
+.btn.pri{background:var(--indigo);color:#fff}
+.btn.gho{background:var(--card);border-color:var(--line);color:var(--ink)}
+.btn.dan{background:var(--out-soft);color:var(--out)}
+.btn.blk{width:100%}
+.btn:disabled{opacity:.45;cursor:default}
+.btn.sm{padding:7px 12px;font-size:13px;border-radius:9px}
+
+/* ---------- segmented ---------- */
+.seg{display:flex;background:var(--line2);border-radius:12px;padding:3px;gap:3px}
+.seg button{flex:1;padding:9px 6px;border-radius:9px;font-size:13.5px;font-weight:600;color:var(--ink2)}
+.seg button.on{background:var(--card);color:var(--ink);box-shadow:0 1px 3px rgba(20,22,31,.09)}
+.seg button.on.out{color:var(--out)} .seg button.on.in{color:var(--in)} .seg button.on.move{color:var(--move)}
+
+/* ---------- form ---------- */
+.field{margin-bottom:13px}
+.field > label{display:block;font-size:12px;font-weight:600;color:var(--ink2);margin-bottom:5px}
+.inp{width:100%;background:var(--card);border:1px solid var(--line);border-radius:11px;padding:11px 12px;font-size:15px;outline:none}
+.inp:focus{border-color:var(--indigo);box-shadow:0 0 0 3px var(--indigo-soft)}
+select.inp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5L6 6.5L11 1.5' stroke='%23868DA1' stroke-width='1.8' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:right 12px center;padding-right:32px}
+.big-amt{width:100%;border:none;background:none;outline:none;text-align:center;font-family:var(--f-disp);
+  font-size:40px;font-weight:800;letter-spacing:-.03em;font-variant-numeric:tabular-nums;padding:6px 0}
+.big-amt::placeholder{color:var(--line)}
+.amt-wrap{position:relative;display:block}
+.amt-field{width:100%;background:var(--card);border:1px solid var(--line);border-radius:11px;
+  padding:10px 34px 10px 12px;outline:none;color:var(--ink);font-family:var(--f-disp);
+  font-size:26px;font-weight:800;letter-spacing:-.03em;font-variant-numeric:tabular-nums}
+.amt-field:focus{border-color:var(--indigo);box-shadow:0 0 0 3px var(--indigo-soft)}
+.amt-field::placeholder{color:var(--line)}
+.amt-cur{position:absolute;right:13px;top:50%;transform:translateY(-50%);
+  font-size:14px;font-weight:600;color:var(--muted);pointer-events:none}
+.sugg{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.sugg.mid{justify-content:center;margin-top:6px}
+.sugg button{border:1px solid var(--indigo);background:var(--card);border-radius:999px;
+  padding:5px 11px;font-size:12.5px;font-weight:600;color:var(--indigo);font-variant-numeric:tabular-nums}
+.sugg button:active{background:var(--indigo-soft)}
+.quick{display:flex;gap:6px;justify-content:center;flex-wrap:wrap;margin-top:6px}
+.quick button{border:1px solid var(--line);border-radius:999px;padding:5px 11px;font-size:12px;font-weight:600;color:var(--ink2);background:var(--card)}
+
+/* ---------- sheet / modal ---------- */
+.scrim{position:fixed;inset:0;background:rgba(20,22,31,.44);z-index:60;animation:fade .16s ease}
+.sheet{position:fixed;left:0;right:0;bottom:0;z-index:61;background:var(--card);
+  border-radius:var(--r-l) var(--r-l) 0 0;max-height:92dvh;display:flex;flex-direction:column;
+  animation:up .24s cubic-bezier(.2,.9,.25,1)}
+.sheet-h{display:flex;align-items:center;gap:10px;padding:14px 16px 10px;border-bottom:1px solid var(--line)}
+.sheet-h h3{font-family:var(--f-disp);font-size:16px;font-weight:700;margin:0;flex:1;letter-spacing:-.01em}
+.sheet-b{overflow-y:auto;padding:16px;padding-bottom:calc(16px + env(safe-area-inset-bottom));-webkit-overflow-scrolling:touch}
+.sheet-f{padding:12px 16px calc(14px + env(safe-area-inset-bottom));border-top:1px solid var(--line);background:var(--card);display:flex;gap:8px}
+@keyframes up{from{transform:translateY(100%)}to{transform:none}}
+@keyframes fade{from{opacity:0}to{opacity:1}}
+
+/* ---------- calendar ---------- */
+.cal{display:grid;grid-template-columns:repeat(7,1fr);gap:1px;background:var(--line2)}
+.cal .dow{background:var(--card);text-align:center;font-size:10.5px;font-weight:700;color:var(--muted);padding:7px 0;text-transform:uppercase;letter-spacing:.05em}
+.cel{background:var(--card);min-height:62px;padding:5px 4px;display:flex;flex-direction:column;align-items:center;gap:2px;position:relative}
+.cel.mut{background:#F7F8FB}
+.cel .d{font-size:12.5px;font-weight:600;color:var(--ink2);width:23px;height:23px;
+  display:grid;place-items:center;border-radius:999px;transition:background .12s}
+.cel.today .d{color:var(--indigo);font-weight:800}
+.cel.sel .d{background:var(--ink);color:#fff}
+.cel.today.sel .d{background:var(--indigo);color:#fff}
+.cel .v{font-size:10px;font-weight:700;font-variant-numeric:tabular-nums;line-height:1.25}
+.cel .v.out{color:var(--out)} .cel .v.in{color:var(--in)}
+
+/* ---------- report ---------- */
+.stat{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.stat .s{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:12px}
+.stat .s .k{font-size:11px;font-weight:600;color:var(--muted);margin-bottom:3px}
+.stat .s .v{font-family:var(--f-disp);font-size:19px;font-weight:800;letter-spacing:-.025em;font-variant-numeric:tabular-nums}
+.bars{display:flex;align-items:flex-end;gap:2px;height:96px;padding:0 2px}
+.bars i{flex:1;background:var(--indigo-soft);border-radius:2px 2px 0 0;min-height:2px;position:relative;display:block}
+.bars i.hi{background:var(--indigo)}
+.bars i.tod{background:var(--out)}
+table.t{width:100%;border-collapse:collapse;font-size:13.5px}
+table.t th{text-align:left;font-size:10.5px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);padding:8px 14px;border-bottom:1px solid var(--line)}
+table.t td{padding:10px 14px;border-top:1px solid var(--line2)}
+table.t td.r,table.t th.r{text-align:right}
+
+/* ---------- misc ---------- */
+.empty{text-align:center;padding:34px 20px;color:var(--muted)}
+.empty b{display:block;color:var(--ink);font-family:var(--f-disp);font-size:15px;margin-bottom:4px}
+.hr{height:1px;background:var(--line2);margin:12px 0}
+.mut{color:var(--muted)}
+.grow{flex:1}
+.confirm-box{position:fixed;z-index:71;left:50%;top:50%;transform:translate(-50%,-50%);
+  width:min(340px,88vw);background:var(--card);border-radius:16px;padding:18px;
+  box-shadow:0 14px 44px rgba(20,22,31,.24)}
+.confirm-box p{margin:0 0 15px;font-size:14px;line-height:1.5}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(var(--nav-h) + 20px + env(safe-area-inset-bottom));
+  z-index:80;background:var(--ink);color:#fff;padding:10px 16px;border-radius:999px;font-size:13.5px;font-weight:600;
+  animation:fade .16s ease;max-width:88vw;text-align:center}
+.swatches{display:flex;flex-wrap:wrap;gap:8px}
+.sw{width:36px;height:36px;border-radius:11px;border:1px solid rgba(20,22,31,.06)}
+.sw.on{box-shadow:0 0 0 2px var(--card),0 0 0 4px var(--ink)}
+.sw.ic{background:var(--card);border:1px solid var(--line);display:grid;place-items:center}
+.sw.ic.on{border-color:currentColor;box-shadow:0 0 0 2px var(--card),0 0 0 3px currentColor}
+.chk{width:22px;height:22px;border-radius:7px;border:1.8px solid var(--line);display:grid;place-items:center;flex:none;background:var(--card)}
+.chk.on{background:var(--indigo);border-color:var(--indigo);color:#fff}
+.lnk{color:var(--indigo);font-weight:600;font-size:13px}
+
+/* ---------- desktop ---------- */
+@media (min-width:960px){
+  .app{flex-direction:row}
+  .nav{display:none}
+  .rail{display:flex;flex-direction:column;gap:4px;width:222px;flex:none;padding:16px 12px;
+    border-right:1px solid var(--line);position:sticky;top:0;height:100dvh;background:var(--card)}
+  .rail .rb{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:11px;font-size:14px;font-weight:600;color:var(--ink2);width:100%}
+  .rail .rb.on{background:var(--indigo-soft);color:var(--indigo)}
+  .rail .rb:hover:not(.on){background:var(--line2)}
+  .rail .add{margin-top:8px;background:var(--indigo);color:#fff;justify-content:center}
+  .rail .add:hover{background:var(--indigo-2)}
+  .main{padding:0 28px 60px}
+  .topbar{margin:0 -28px 16px;padding:12px 28px}
+  .two{display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start}
+  .two .card+.card{margin-top:12px}
+  .stat{grid-template-columns:repeat(3,1fr)}
+  .sheet{left:50%;transform:translateX(-50%);width:520px;bottom:24px;border-radius:var(--r-l);max-height:86dvh}
+  @keyframes up{from{transform:translate(-50%,24px);opacity:0}to{transform:translate(-50%,0);opacity:1}}
+  .cel{min-height:78px}
+  .toast{bottom:28px}
+  .fixed-cta{left:222px;padding:14px 28px}
+  .only-mob{display:none!important}
+}
+@media (prefers-reduced-motion:reduce){*{animation-duration:.01ms!important;transition-duration:.01ms!important}}
+:focus-visible{outline:2px solid var(--indigo);outline-offset:2px;border-radius:6px}
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel" data-presets="react">
+const {useState,useEffect,useMemo,useRef} = React;
+
+/* ============================================================
+   1. UTILITIES
+   ============================================================ */
+const uid=()=>Math.random().toString(36).slice(2,10);
+const pad=n=>String(n).padStart(2,'0');
+const ymOf=d=>`${d.getFullYear()}-${pad(d.getMonth()+1)}`;
+const dstr=d=>`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+const parseD=s=>{const p=s.split('-').map(Number);return new Date(p[0],p[1]-1,p[2])};
+const money=n=>Math.round(n||0).toLocaleString('vi-VN');
+const shortM=n=>{const a=Math.abs(n||0);
+  if(a>=1e9)return (a/1e9).toFixed(1)+'B';
+  if(a>=1e6)return (a/1e6).toFixed(a>=1e7?0:1)+'M';
+  if(a>=1e3)return Math.round(a/1e3)+'K'; return String(Math.round(a));};
+const MONTHS=['January','February','March','April','May','June','July','August','September','October','November','December'];
+const MON=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const mLabel=ym=>{const p=ym.split('-');return MON[Number(p[1])-1]+' '+p[0]};
+const mLabelLong=ym=>{const p=ym.split('-');return MONTHS[Number(p[1])-1]+' '+p[0]};
+const shiftYm=(ym,k)=>{const p=ym.split('-').map(Number);return ymOf(new Date(p[0],p[1]-1+k,1))};
+const dim=ym=>{const p=ym.split('-').map(Number);return new Date(p[0],p[1],0).getDate()};
+const ymOfDate=s=>s.slice(0,7);
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+let _ask=null;
+const ask=(msg,onOk,okLabel)=>{ if(_ask) _ask(msg,onOk,okLabel); else onOk(); };
+const MAG=[1e3,1e4,1e5,1e6];
+const suggestAmounts=v=>(!v||v>=10000)?[]:MAG.map(m=>v*m).filter(n=>n<=1e9);
+const TAG_COLORS=['#2B3A8F','#C33F4C','#0F7A57','#6B54C6','#A96700','#0E7490','#9A3412','#4B5563','#BE185D','#15803D'];
+const ACC_COLORS=['#2B3A8F','#0E7490','#0F7A57','#A96700','#C33F4C','#6B54C6','#B3286B','#4B5563'];
+const ACC_ICONS=['bank','wallet','card','coin','cash','piggy','briefcase','home','car','plane',
+  'cart','gift','star','heart','cup','book','grad','health','phone','jar','gem','ticket','umbrella','chart'];
+const accColor=a=>(a&&a.color)||ACC_COLORS[0];
+const accIcon=a=>(a&&a.icon)||(a&&a.kind==='cash'?'wallet':'bank');
+const GROUPS=[{k:'basic',n:'Essentials',c:'#2B3A8F'},{k:'debt',n:'Debt',c:'#4C5DBF'},
+  {k:'save',n:'Savings',c:'#8590DC'}];
+const CUSTOM_C='#B8BFEE';
+const DOW=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+
+/* ============================================================
+   2. STORAGE  (Claude artifact storage, fallback localStorage)
+   ============================================================ */
+const KEY='lo.expense.v1';
+async function loadState(){
+  if(window.storage){try{const r=await window.storage.get(KEY);if(r&&r.value)return JSON.parse(r.value)}catch(e){}}
+  try{const v=localStorage.getItem(KEY);if(v)return JSON.parse(v)}catch(e){}
+  return null;
+}
+async function saveState(s){
+  const j=JSON.stringify(s);
+  if(window.storage){try{await window.storage.set(KEY,j);return}catch(e){}}
+  try{localStorage.setItem(KEY,j)}catch(e){}
+}
+async function wipe(){
+  if(window.storage){try{await window.storage.delete(KEY)}catch(e){}}
+  try{localStorage.removeItem(KEY)}catch(e){}
+}
+
+/* ============================================================
+   3. SEED DATA
+   ============================================================ */
+function migrate(s){
+  if(!s.closes) s.closes={};
+  if(!s.hiddenJars) s.hiddenJars=[];
+  if(!s.loans) s.loans=[];
+  (s.txns||[]).forEach(t=>{
+    if(!Array.isArray(t.tagIds)) t.tagIds = t.tagId ? [t.tagId] : [];
+    delete t.tagId;
+  });
+  return s;
+}
+function emptyState(){
+  return {v:1,accounts:[],jars:[],openings:{},tags:[],txns:[],template:[],plans:{},installments:[],loans:[],closes:{},hiddenJars:[]};
+}
+function seed(){
+  const now=new Date(), ym=ymOf(now), pm=shiftYm(ym,-1);
+  const day=(k,d)=>{const p=k.split('-');return `${p[0]}-${p[1]}-${pad(d)}`};
+  const today=now.getDate();
+
+  const accounts=[
+    {id:'a1',name:'Vietcombank',kind:'bank',color:'#0F7A57',icon:'bank'},
+    {id:'a2',name:'Techcombank',kind:'bank',color:'#C33F4C',icon:'card'},
+    {id:'a3',name:'Cash & Momo',kind:'cash',color:'#6B54C6',icon:'wallet'},
+  ];
+  const jars=[
+    {id:'j1',accountId:'a1',name:'Living'},
+    {id:'j2',accountId:'a1',name:'Bills & utilities'},
+    {id:'j3',accountId:'a1',name:'Installments'},
+    {id:'j4',accountId:'a2',name:'Long-term savings'},
+    {id:'j5',accountId:'a2',name:'Emergency fund'},
+    {id:'j6',accountId:'a3',name:'Food'},
+    {id:'j7',accountId:'a3',name:'Misc'},
+  ];
+  const tags=['Food','Transport','Bills','Shopping','Health','Fun','Family','Other']
+    .map((n,i)=>({id:'t'+(i+1),name:n,color:TAG_COLORS[i%TAG_COLORS.length]}));
+
+  const template=[
+    {id:'p1',group:'basic',name:'Rent',amount:5000000,jarId:'j2'},
+    {id:'p2',group:'basic',name:'Electricity & water',amount:1200000,jarId:'j2'},
+    {id:'p3',group:'basic',name:'Internet & phone',amount:400000,jarId:'j2'},
+    {id:'p4',group:'basic',name:'Monthly food',amount:4500000,jarId:'j6'},
+    {id:'p5',group:'basic',name:'Fuel & transport',amount:800000,jarId:'j1'},
+    {id:'p6',group:'basic',name:'Miscellaneous',amount:1500000,jarId:'j7'},
+    {id:'p7',group:'debt',name:'iPhone instalment',amount:2670000,jarId:'j3'},
+    {id:'p8',group:'debt',name:'Motorbike instalment',amount:2500000,jarId:'j3'},
+    {id:'p9',group:'debt',name:'Washer instalment',amount:2000000,jarId:'j3'},
+    {id:'p10',group:'save',name:'Long-term savings',amount:5000000,jarId:'j4'},
+    {id:'p11',group:'save',name:'Emergency fund',amount:2000000,jarId:'j5'},
+  ];
+  const openings={};
+  openings[ym]={}; openings[pm]={};
+  template.forEach(t=>{
+    openings[ym][t.jarId]=(openings[ym][t.jarId]||0)+t.amount;
+    openings[pm][t.jarId]=(openings[pm][t.jarId]||0)+t.amount;
+  });
+
+  const plans={};
+  plans[ym]={items:template.map(t=>({...t,checked:true,applied:true})),appliedAt:day(ym,1)};
+
+  const T=(d,type,amount,jarId,tagId,note,extra)=>({id:uid(),date:d,type,amount,jarId:jarId||null,tagIds:tagId?[tagId]:[],note:note||'',...(extra||{})});
+  let txns=[];
+  const cur=[
+    [1,'income',24000000,'j1','','Monthly salary'],
+    [1,'expense',5000000,'j2','t3','Rent'],
+    [1,'expense',2670000,'j3','t8','iPhone installment #6'],
+    [2,'expense',185000,'j6','t1','Groceries'],
+    [2,'expense',60000,'j1','t2','Grab to work'],
+    [3,'expense',420000,'j2','t3','Electricity bill'],
+    [3,'expense',95000,'j6','t1','Office lunch'],
+    [4,'expense',1250000,'j7','t4','New shoes'],
+    [4,'expense',72000,'j6','t1','Coffee & pastry'],
+    [5,'expense',2500000,'j3','t8','Motorbike installment #10'],
+    [5,'expense',340000,'j1','t2','Fuel'],
+    [5,'income',1500000,'j7','','Project bonus'],
+    [6,'expense',680000,'j6','t1','Family dinner'],
+    [6,'expense',150000,'j7','t6','Movie tickets'],
+    [7,'expense',260000,'j6','t1','Groceries'],
+    [7,'expense',890000,'j1','t5','Health check-up'],
+  ];
+  cur.forEach(r=>{ if(r[0]<=Math.max(today,1)) txns.push(T(day(ym,r[0]),r[1],r[2],r[3],r[4],r[5])) });
+  txns.push({...T(day(ym,Math.min(3,Math.max(today,1))),'transfer',3000000,null,null,'Cash withdrawal'),fromJarId:'j1',toJarId:'j6'});
+
+  const prev=[
+    [1,'income',24000000,'j1','','Monthly salary'],
+    [1,'expense',5000000,'j2','t3','Rent'],
+    [2,'expense',2670000,'j3','t8','iPhone installment #5'],
+    [3,'expense',510000,'j2','t3','Utilities'],
+    [5,'expense',2500000,'j3','t8','Motorbike installment #9'],
+    [7,'expense',1800000,'j7','t4','Household goods'],
+    [9,'expense',640000,'j6','t1','Weekend dining'],
+    [12,'expense',420000,'j1','t2','Fuel'],
+    [14,'expense',2000000,'j3','t8','Washer installment #2'],
+    [16,'expense',1150000,'j6','t1','Groceries'],
+    [19,'expense',300000,'j7','t6','Concert'],
+    [22,'expense',760000,'j1','t5','Medicine & clinic'],
+    [25,'expense',1400000,'j7','t7','Birthday gift'],
+    [28,'expense',980000,'j6','t1','Groceries'],
+  ];
+  prev.forEach(r=>txns.push(T(day(pm,r[0]),r[1],r[2],r[3],r[4],r[5])));
+
+  const mkPeriods=(start,n,per,paidCount)=>{
+    const d0=parseD(start),out=[];
+    for(let i=0;i<n;i++){
+      const d=new Date(d0.getFullYear(),d0.getMonth()+i,d0.getDate());
+      out.push({i:i+1,due:dstr(d),amount:per,paid:i<paidCount,paidAt:i<paidCount?dstr(d):null});
+    }
+    return out;
+  };
+  const s1=dstr(new Date(now.getFullYear(),now.getMonth()-5,15));
+  const s2=dstr(new Date(now.getFullYear(),now.getMonth()-9,10));
+  const s3=dstr(new Date(now.getFullYear(),now.getMonth()-2,1));
+  const installments=[
+    {id:'i1',name:'iPhone 16 Pro',note:'VCB credit card, 0%',total:32040000,periods:12,per:2670000,start:s1,jarId:'j3',payments:mkPeriods(s1,12,2670000,6)},
+    {id:'i2',name:'Honda SH Mode',note:'Bank loan, 24 months',total:60000000,periods:24,per:2500000,start:s2,jarId:'j3',payments:mkPeriods(s2,24,2500000,10)},
+    {id:'i3',name:'LG washing machine',note:'Store financing, 6 periods',total:12000000,periods:6,per:2000000,start:s3,jarId:'j3',payments:mkPeriods(s3,6,2000000,3)},
+  ];
+
+  const lendDate=day(pm,20), lendTx=uid();
+  txns.push({id:lendTx,date:lendDate,type:'expense',amount:6000000,jarId:'j7',
+    tagIds:['t7'],note:'Lent · Minh'});
+  const loans=[{id:'L1',name:'Minh',note:'For his laptop',total:6000000,date:lendDate,
+    jarId:'j7',tagIds:['t7'],txnId:lendTx,periods:3,
+    payments:mkPeriods(lendDate,3,2000000,0).map(p=>({...p,jarId:null,txnId:null}))}];
+
+  return {v:1,accounts,jars,openings,tags,txns,template,plans,installments,loans,closes:{},hiddenJars:[]};
+}
+
+/* ============================================================
+   4. DERIVED SELECTORS
+   ============================================================ */
+function monthTxns(st,ym){return st.txns.filter(t=>ymOfDate(t.date)===ym)}
+
+function jarStats(st,ym){
+  const m={};
+  st.jars.forEach(j=>{m[j.id]={open:(st.openings[ym]||{})[j.id]||0,in:0,out:0}});
+  monthTxns(st,ym).forEach(t=>{
+    if(t.type==='expense'&&m[t.jarId]) m[t.jarId].out+=t.amount;
+    else if(t.type==='income'&&m[t.jarId]) m[t.jarId].in+=t.amount;
+    else if(t.type==='transfer'){
+      if(m[t.fromJarId]) m[t.fromJarId].out+=t.amount;
+      if(m[t.toJarId]) m[t.toJarId].in+=t.amount;
+    }
+  });
+  Object.keys(m).forEach(k=>{m[k].left=m[k].open+m[k].in-m[k].out});
+  return m;
+}
+function monthSummary(st,ym){
+  let inc=0,out=0;
+  monthTxns(st,ym).forEach(t=>{
+    if(t.type==='income')inc+=t.amount; else if(t.type==='expense')out+=t.amount;
+  });
+  const js=jarStats(st,ym);
+  let open=0,left=0;
+  st.jars.forEach(j=>{open+=js[j.id].open;left+=js[j.id].left});
+  return {inc,out,net:inc-out,open,left,js};
+}
+const jarName=(st,id)=>{const j=st.jars.find(x=>x.id===id);if(!j)return '—';
+  const a=st.accounts.find(x=>x.id===j.accountId);return (a?a.name+' · ':'')+j.name};
+const jarShort=(st,id)=>{const j=st.jars.find(x=>x.id===id);return j?j.name:'—'};
+const tagOf=(st,id)=>st.tags.find(t=>t.id===id);
+
+/* ============================================================
+   5. ICONS
+   ============================================================ */
+const I=({n,s=20})=>{
+  const P={
+    jar:'M6 3h12M7 3l1 4v12a2 2 0 002 2h4a2 2 0 002-2V7l1-4M8 12h8',
+    cal:'M3 9h18M7 3v3M17 3v3M5 5h14a2 2 0 012 2v12a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2z',
+    chart:'M4 20V10M10 20V4M16 20v-7M22 20H2',
+    list:'M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01',
+    plus:'M12 5v14M5 12h14',
+    left:'M15 5l-7 7 7 7',
+    right:'M9 5l7 7-7 7',
+    x:'M6 6l12 12M18 6L6 18',
+    check:'M4 12.5l5 5L20 6',
+    cog:'M12 15a3 3 0 100-6 3 3 0 000 6zM19.4 15a1.6 1.6 0 00.3 1.8l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.6 1.6 0 00-2.7 1.1v.2a2 2 0 11-4 0V21a1.6 1.6 0 00-2.7-1.1l-.1.1a2 2 0 11-2.8-2.8l.1-.1A1.6 1.6 0 003 15H2.8a2 2 0 110-4H3a1.6 1.6 0 001.1-2.7l-.1-.1a2 2 0 112.8-2.8l.1.1A1.6 1.6 0 009.6 4.4V4a2 2 0 114 0v.2a1.6 1.6 0 002.7 1.1l.1-.1a2 2 0 112.8 2.8l-.1.1A1.6 1.6 0 0021 11h.2a2 2 0 110 4H21',
+    trash:'M4 7h16M10 11v6M14 11v6M6 7l1 13a1 1 0 001 1h8a1 1 0 001-1l1-13M9 7V4h6v3',
+    edit:'M4 20h4L20 8a2.8 2.8 0 10-4-4L4 16v4z',
+    dn:'M6 9l6 6 6-6',
+    up:'M6 15l6-6 6 6',
+    arrow:'M5 12h14M13 6l6 6-6 6',
+    wallet:'M3 8a2 2 0 012-2h13a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V8zM16 12h3',
+    bank:'M3 10h18M4 10l8-6 8 6M6 10v8M10 10v8M14 10v8M18 10v8M3 21h18',
+    card:'M3 7a2 2 0 012-2h14a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2V7zM3 10h18M7 15h3',
+    coin:'M12 21a9 9 0 100-18 9 9 0 000 18zM12 7v10M14.5 9.6a2.4 2.4 0 00-4.8.2c0 1.4 4.8 1.1 4.8 2.5a2.4 2.4 0 01-4.8.2',
+    lend:'M3 14.5A1.5 1.5 0 014.5 13H7v7H4.5A1.5 1.5 0 013 18.5v-4zM7 14l2.4-2.4a2 2 0 011.4-.6h4.6a2 2 0 011.9 1.4l1 3.2a2 2 0 01-1.3 2.5l-5.4 1.7a3 3 0 01-1.8 0L7 19M12 9V2.5M9.6 4.9L12 2.5l2.4 2.4',
+    home:'M3 11l9-8 9 8M5 10v10h14V10M10 20v-6h4v6',
+    phone:'M7 3h10a1 1 0 011 1v16a1 1 0 01-1 1H7a1 1 0 01-1-1V4a1 1 0 011-1zM10 18h4',
+    star:'M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9L12 3z',
+    gift:'M4 11h16v9a1 1 0 01-1 1H5a1 1 0 01-1-1v-9zM3 7h18v4H3V7zM12 7v14M12 7C10 7 7.5 6.5 7.5 4.8A1.8 1.8 0 0112 4.2a1.8 1.8 0 014.5.6C16.5 6.5 14 7 12 7z',
+    cart:'M3 4h2l2.5 11h10L20 7H6M9.5 20a1 1 0 100-2 1 1 0 000 2zM17 20a1 1 0 100-2 1 1 0 000 2z',
+    book:'M5 4a2 2 0 012-2h11a1 1 0 011 1v16a1 1 0 01-1 1H7a2 2 0 00-2 2V4zM5 18h13M10 7h5M10 11h5',
+    piggy:'M4 13a6 5 0 016-5h3.6a6 5 0 016 5c0 1.8-1 3.4-2.5 4.3V20h-2.8v-1.5h-4V20H7.2v-2.7C5.7 16.4 4 15 4 13zM4 13.2H2.2M12.6 8l1-3.2M17.6 12h.01',
+    cash:'M2.5 7h19v10h-19V7zM12 14.6a2.6 2.6 0 100-5.2 2.6 2.6 0 000 5.2zM5.6 10h.01M18.4 14h.01',
+    briefcase:'M3 8h18v11a1 1 0 01-1 1H4a1 1 0 01-1-1V8zM8 8V5a1 1 0 011-1h6a1 1 0 011 1v3M3 13h18',
+    car:'M5 11l1.8-4.3A2 2 0 018.6 5.5h6.8a2 2 0 011.8 1.2L19 11M3.5 11h17a.5.5 0 01.5.5V16H3v-4.5a.5.5 0 01.5-.5zM7 19a1.5 1.5 0 100-3 1.5 1.5 0 000 3zM17 19a1.5 1.5 0 100-3 1.5 1.5 0 000 3z',
+    plane:'M10.5 4a1.5 1.5 0 013 0v5l8 4.4v2.2l-8-2.3v3.9l2.5 1.8v1.3L12 19.8l-4 .5v-1.3l2.5-1.8v-3.9l-8 2.3v-2.2L10.5 9V4z',
+    heart:'M12 20.3S4.8 15.9 4.8 10.9A4.1 4.1 0 0112 8.1a4.1 4.1 0 017.2 2.8c0 5-7.2 9.4-7.2 9.4z',
+    cup:'M4 8h13v6a4 4 0 01-4 4H8a4 4 0 01-4-4V8zM17 9.6h1.4a2.4 2.4 0 010 4.8H17M6.5 5.4V3.6M10.5 5.4V3.6M14 5.4V3.6',
+    grad:'M2 8.5L12 4l10 4.5-10 4.5L2 8.5zM6 10.6V16c0 1.5 2.7 2.8 6 2.8s6-1.3 6-2.8v-5.4M20.5 9.4v5.2',
+    health:'M12 21a9 9 0 100-18 9 9 0 000 18zM12 8v8M8 12h8',
+    gem:'M6 3h12l3 6-9 12L3 9l3-6zM3 9h18M9 3l-2 6 5 12 5-12-2-6',
+    ticket:'M3 8a2 2 0 012-2h14a2 2 0 012 2v2a2 2 0 000 4v2a2 2 0 01-2 2H5a2 2 0 01-2-2v-2a2 2 0 000-4V8zM14 6.5v11',
+    umbrella:'M3 12a9 9 0 0118 0c-1.5-1.2-3-1.2-4.5 0-1.5-1.2-3-1.2-4.5 0-1.5-1.2-3-1.2-4.5 0C6 10.8 4.5 10.8 3 12zM12 12v7a2 2 0 004 0',
+  };
+  return <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor"
+    strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d={P[n]}/></svg>;
+};
+
+/* ============================================================
+   6. SMALL UI
+   ============================================================ */
+function Vessel({pct,low=false,md=false}){
+  const p=clamp(pct,0,100);
+  return (
+    <div className={'vessel'+(md?' md':'')}>
+      <div className={'fill'+(low?' low':'')} style={{width:p+'%'}}/>
+    </div>
+  );
+}
+function Sheet({title,onClose,children,footer,wide}){
+  useEffect(()=>{
+    const h=e=>{if(e.key==='Escape')onClose()};
+    window.addEventListener('keydown',h);
+    document.body.style.overflow='hidden';
+    return()=>{window.removeEventListener('keydown',h);document.body.style.overflow=''};
+  },[]);
+  return (<>
+    <div className="scrim" onClick={onClose}/>
+    <div className="sheet" role="dialog" aria-modal="true">
+      <div className="sheet-h">
+        <h3>{title}</h3>
+        <button className="iconbtn" onClick={onClose} aria-label="Close"><I n="x" s={17}/></button>
+      </div>
+      <div className="sheet-b">{children}</div>
+      {footer && <div className="sheet-f">{footer}</div>}
+    </div>
+  </>);
+}
+function MoneyInput({value,onChange,placeholder='0',autoFocus,boxed,center,quick,children}){
+  const [picked,setPicked]=useState(false);
+  const txt=value?Number(value).toLocaleString('vi-VN'):'';
+  const on=e=>{const d=e.target.value.replace(/[^\d]/g,'');setPicked(false);onChange(d?Number(d):0)};
+  const sug=picked?[]:suggestAmounts(value);
+
+  const field=boxed
+    ? <div className="amt-wrap">
+        <input className="amt-field" inputMode="numeric" autoFocus={autoFocus}
+          value={txt} placeholder={placeholder} onChange={on}/>
+        <span className="amt-cur">₫</span>
+      </div>
+    : <input className="big-amt" inputMode="numeric" autoFocus={autoFocus} value={txt}
+        placeholder={placeholder} onChange={on}/>;
+
+  let foot=null;
+  if(sug.length) foot=(
+    <div className={'sugg'+(center?' mid':'')}>
+      {sug.map(n=>(
+        <button key={n} onClick={()=>{setPicked(true);onChange(n)}}>{money(n)}</button>
+      ))}
+    </div>
+  );
+  else if(quick) foot=(
+    <div className="quick">
+      {quick.map(v=><button key={v} onClick={()=>{setPicked(true);onChange(value+v)}}>+{shortM(v)}</button>)}
+      <button onClick={()=>{setPicked(false);onChange(0)}}>Clear</button>
+    </div>
+  );
+
+  return <>{field}{children}{foot}</>;
+}
+function TagPicker({st,set,value,onChange}){
+  const [newTag,setNewTag]=useState('');
+  const [mgr,setMgr]=useState(false);
+  const sel=value||[];
+  const toggle=id=>onChange(sel.includes(id)?sel.filter(x=>x!==id):[...sel,id]);
+  const add=name=>{
+    const id=uid();
+    set(d=>{d.tags.push({id,name:name.trim(),color:TAG_COLORS[d.tags.length%TAG_COLORS.length]})});
+    onChange([...sel,id]); setNewTag('');
+  };
+  const del=t=>ask('Delete tag "'+t.name+'"? It will be removed from every transaction and loan using it.',()=>{
+    set(d=>{
+      d.tags=d.tags.filter(x=>x.id!==t.id);
+      d.txns.forEach(x=>{x.tagIds=(x.tagIds||[]).filter(id=>id!==t.id)});
+      (d.loans||[]).forEach(l=>{l.tagIds=(l.tagIds||[]).filter(id=>id!==t.id)});
+    });
+    onChange(sel.filter(id=>id!==t.id));
+  });
+  return (<>
+    <div className="chips">
+      {st.tags.map(t=>
+        <button key={t.id} className={'chip'+(sel.includes(t.id)?' on':'')}
+          onClick={()=>toggle(t.id)}>{t.name}</button>)}
+      {st.tags.length===0&&<span className="mut" style={{fontSize:13}}>No tags yet.</span>}
+    </div>
+    <div style={{display:'flex',gap:6,marginTop:8}}>
+      <input className="inp" placeholder="New tag…" value={newTag}
+        onChange={e=>setNewTag(e.target.value)}
+        onKeyDown={e=>{if(e.key==='Enter'&&newTag.trim()){e.preventDefault();add(newTag)}}}/>
+      <button className="btn gho sm" disabled={!newTag.trim()} onClick={()=>add(newTag)}>Add</button>
+      <button className="btn gho sm" aria-label="Manage tags" title="Manage tags"
+        onClick={()=>setMgr(m=>!m)}
+        style={mgr?{borderColor:'var(--indigo)',color:'var(--indigo)',background:'var(--indigo-soft)'}:null}>
+        <I n="cog" s={15}/></button>
+    </div>
+    {mgr&&<div className="card" style={{marginTop:8}}>
+      {st.tags.map(t=>(
+        <div className="row" key={t.id} style={{gap:8,padding:'8px 10px'}}>
+          <span style={{width:10,height:10,borderRadius:3,background:t.color,flex:'none'}}/>
+          <input className="inp" style={{padding:'6px 9px',fontSize:13.5}} value={t.name}
+            onChange={e=>{const v=e.target.value;
+              set(d=>{const x=d.tags.find(y=>y.id===t.id);if(x)x.name=v})}}/>
+          <button className="cat-ic" aria-label={'Delete '+t.name}
+            onClick={()=>del(t)}><I n="trash" s={15}/></button>
+        </div>
+      ))}
+      {st.tags.length===0&&<div className="empty" style={{padding:'18px'}}>
+        <b>No tags yet</b>Create one in the box above.</div>}
+    </div>}
+  </>);
+}
+function Field({label,children}){return <div className="field"><label>{label}</label>{children}</div>}
+function JarSelect({st,value,onChange,allowEmpty}){
+  return (
+    <select className="inp" value={value||''} onChange={e=>onChange(e.target.value||null)}>
+      {allowEmpty && <option value="">— None —</option>}
+      {st.accounts.map(a=>(
+        <option key={'g'+a.id} disabled style={{fontWeight:700}}>{'── '+a.name+' ──'}</option>
+      )).flatMap((opt,i)=>{
+        const a=st.accounts[i];
+        return [opt,...st.jars.filter(j=>j.accountId===a.id).map(j=>
+          <option key={j.id} value={j.id}>{'   '+j.name}</option>)];
+      })}
+    </select>
+  );
+}
+
+/* ============================================================
+   7. SCREEN — JARS  (+ category detail page)
+   ============================================================ */
+function CatPage({st,j,ym,d,onEdit,openTx}){
+  const acc=st.accounts.find(x=>x.id===j.accountId);
+  const list=monthTxns(st,ym)
+    .filter(t=>t.jarId===j.id||t.fromJarId===j.id||t.toJarId===j.id)
+    .sort((a,b)=>a.date<b.date?1:-1);
+  const p=d.open>0?(d.left/d.open)*100:0;
+  return (<div style={{paddingTop:2}}>
+    <div className="card pad">
+      <div style={{display:'flex',alignItems:'center',gap:10}}>
+        <div className="dot" style={{background:accColor(acc),color:'#fff'}}>
+          <I n={accIcon(acc)} s={17}/></div>
+        <div className="row-t grow" style={{minWidth:0,overflow:'hidden',
+          textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{acc?acc.name:''}</div>
+        <button className="trail" aria-label={'Edit '+j.name} onClick={onEdit}>
+          <I n="edit" s={15}/></button>
+      </div>
+
+      <div className="eyebrow" style={{marginTop:13}}>Remaining · {mLabelLong(ym)}</div>
+      <div className="num" style={{fontSize:28,fontWeight:800,letterSpacing:'-.032em',
+        margin:'1px 0 11px',color:d.left<0?'var(--out)':'var(--ink)'}}>
+        {money(d.left)} <span style={{fontSize:14,color:'var(--muted)',fontWeight:600}}>₫</span></div>
+
+      <Vessel pct={p} low={p<15}/>
+      <div className="hr"/>
+
+      <div className="figs">
+        <div><span className="k">Start</span><b>{money(d.open)}</b></div>
+        {d.out>0 && <div><span className="k">Out</span><b className="o">−{money(d.out)}</b></div>}
+        {d.in>0 && <div><span className="k">In</span><b className="i">+{money(d.in)}</b></div>}
+      </div>
+    </div>
+
+    <div className="sec-h"><h2>Transactions</h2>
+      <span className="sub">{list.length} this month</span></div>
+    <div className="card">
+      {list.length===0
+        ? <div className="empty"><b>No transactions</b>Nothing recorded for this category this month.</div>
+        : list.map(t=><TxRow key={t.id} st={st} t={t} onClick={()=>openTx(t)}/>)}
+    </div>
+
+    <div className="fixed-cta">
+      <button className="btn pri blk"
+        onClick={()=>openTx({date:ymOf(new Date())===ym?dstr(new Date()):ym+'-01',jarId:j.id})}>
+        <I n="plus" s={16}/> Add transaction</button>
+    </div>
+  </div>);
+}
+
+function JarsScreen({st,set,ym,toast,openTx,catId,setCatId,openClose}){
+  const [openAcc,setOpenAcc]=useState(()=>st.accounts.map(a=>a.id));
+  const [edit,setEdit]=useState(null);
+  const [accForm,setAccForm]=useState(null);
+  const [jarForm,setJarForm]=useState(null);
+  const [newCat,setNewCat]=useState('');
+  const s=useMemo(()=>monthSummary(st,ym),[st,ym]);
+  const pageJar=catId?st.jars.find(x=>x.id===catId):null;
+
+  const toggle=id=>setOpenAcc(o=>o.includes(id)?o.filter(x=>x!==id):[...o,id]);
+
+  const saveOpening=(jarId,amount)=>{
+    set(d=>{ d.openings[ym]=d.openings[ym]||{}; d.openings[ym][jarId]=amount; });
+    setEdit(null); toast('Allocation updated');
+  };
+
+  return (<div>
+    {pageJar ? <CatPage st={st} j={pageJar} ym={ym} d={s.js[pageJar.id]}
+      openTx={openTx}
+      onEdit={()=>setEdit({jar:pageJar,amount:s.js[pageJar.id].open})}/> : <>
+    <div className="card">
+      <button className="row" onClick={openClose}>
+        <div className="dot n"><I n="arrow" s={17}/></div>
+        <div className="row-b">
+          <div className="row-t">Close {mLabelLong(ym)}</div>
+          <div className="row-s">Carry balances, add income, allocate {mLabelLong(shiftYm(ym,1))}</div>
+        </div>
+        <span className="trail"><I n="right" s={16}/></span>
+      </button>
+    </div>
+
+    <div className="sec-h"><h2>Accounts &amp; categories</h2>
+      <button className="act" onClick={()=>{setNewCat('');setAccForm({name:'',kind:'bank',color:ACC_COLORS[0],icon:'bank',cats:[]})}}>+ Add account</button></div>
+
+    {st.accounts.length===0 && <div className="card empty"><b>No accounts yet</b>
+      Add a bank account or cash wallet to start splitting money into categories.</div>}
+
+    {st.accounts.map(a=>{
+      const js=st.jars.filter(j=>j.accountId===a.id);
+      const tot=js.reduce((x,j)=>({o:x.o+s.js[j.id].open,l:x.l+s.js[j.id].left}),{o:0,l:0});
+      const on=openAcc.includes(a.id);
+      return (
+        <div className="card" key={a.id}>
+          <div className="row acc-row">
+            <button className="acc-edit" aria-label={'Edit '+a.name} onClick={()=>setAccForm({...a})}>
+              <div className="dot" style={{background:accColor(a),color:'#fff'}}>
+                <I n={accIcon(a)} s={17}/></div>
+              <div className="row-b">
+                <div className="acc-name">
+                  <span className="row-t">{a.name}</span>
+                  <span className="acc-ic"><I n="edit" s={13}/></span>
+                </div>
+                <div className="row-s">{js.length} categories</div>
+              </div>
+            </button>
+            <button className="acc-toggle" aria-expanded={on}
+              aria-label={on?'Collapse categories':'Expand categories'} onClick={()=>toggle(a.id)}>
+              <div style={{textAlign:'right'}}>
+                <div className="amt" style={{fontSize:15}}>{money(tot.l)}</div>
+                <div className="row-s">Remaining</div>
+              </div>
+              <span className="trail"><I n={on?'up':'dn'} s={17}/></span>
+            </button>
+          </div>
+          {on && <>
+            {js.map(j=>{
+              const d=s.js[j.id], p=d.open>0?(d.left/d.open)*100:0;
+              return (
+                <div className="row cat-row" key={j.id} role="button" tabIndex={0}
+                  onClick={()=>setCatId(j.id)}
+                  onKeyDown={e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();setCatId(j.id)}}}
+                  style={{alignItems:'stretch',flexDirection:'column',gap:3}}>
+                  <div style={{display:'flex',alignItems:'center',gap:8,width:'100%'}}>
+                    <div className="row-t" style={{flex:1,minWidth:0,overflow:'hidden',
+                      textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{j.name}</div>
+                    <div className={'amt sub'+(d.left<0?' neg':'')}>{money(d.left)}</div>
+                    <button className="trail" aria-label={'Edit '+j.name}
+                      onClick={e=>{e.stopPropagation();setEdit({jar:j,amount:d.open})}}><I n="edit" s={14}/></button>
+                  </div>
+                  <div className="row-s">{[
+                    'Start '+money(d.open),
+                    d.out?'Out −'+money(d.out):null,
+                    d.in?'In +'+money(d.in):null
+                  ].filter(Boolean).join(' · ')}</div>
+                  <Vessel pct={p} low={p<15}/>
+                </div>
+              );
+            })}
+            <div className="row cat-row" style={{gap:8}}>
+              <button className="lnk" onClick={()=>setJarForm({accountId:a.id,name:''})}>+ Add category</button>
+            </div>
+          </>}
+        </div>
+      );
+    })}
+
+    </>}
+
+    {/* edit opening */}
+    {edit && <Sheet title={'Category · '+edit.jar.name} onClose={()=>setEdit(null)}
+      footer={<>
+        <button className="btn dan sm" onClick={()=>ask('Delete this category? Linked transactions will lose their link.',()=>{
+          set(d=>{d.jars=d.jars.filter(x=>x.id!==edit.jar.id)});setEdit(null);toast('Category deleted');
+        })}><I n="trash" s={15}/></button>
+        <button className="btn pri grow" onClick={()=>saveOpening(edit.jar.id,edit.amount)}>Save changes</button>
+      </>}>
+      <Field label="Category name">
+        <input className="inp" value={edit.jar.name}
+          onChange={e=>{const v=e.target.value;setEdit(s=>({...s,jar:{...s.jar,name:v}}));
+            set(d=>{const j=d.jars.find(x=>x.id===edit.jar.id);if(j)j.name=v})}}/>
+      </Field>
+      <Field label={'Start amount · '+mLabelLong(ym)}>
+        <MoneyInput boxed value={edit.amount} onChange={v=>setEdit(s=>({...s,amount:v}))}/>
+      </Field>
+      <p className="mut" style={{fontSize:12.5,margin:0}}>
+        This is the amount allocated to the category this month. Applying the plan <i>adds</i> to this figure.
+      </p>
+    </Sheet>}
+
+    {accForm && <Sheet title={accForm.id?'Edit account':'Add account'} onClose={()=>setAccForm(null)}
+      footer={<>
+        {accForm.id && <button className="btn dan sm" onClick={()=>ask('Delete this account and every category inside it?',()=>{
+          set(d=>{d.jars=d.jars.filter(j=>j.accountId!==accForm.id);d.accounts=d.accounts.filter(a=>a.id!==accForm.id)});
+          setAccForm(null);toast('Account deleted');
+        })}><I n="trash" s={15}/></button>}
+        <button className="btn pri grow" disabled={!accForm.name.trim()} onClick={()=>{
+          const cats=(accForm.cats||[]);
+          set(d=>{
+            if(accForm.id){const a=d.accounts.find(x=>x.id===accForm.id);
+              Object.assign(a,{name:accForm.name.trim(),kind:accForm.kind,color:accColor(accForm),icon:accIcon(accForm)})}
+            else {
+              const id=uid();
+              d.accounts.push({id,name:accForm.name.trim(),kind:accForm.kind,
+                color:accColor(accForm),icon:accIcon(accForm)});
+              cats.forEach(n=>d.jars.push({id:uid(),accountId:id,name:n}));
+            }
+          });
+          setAccForm(null);
+          toast(accForm.id?'Account saved'
+            :'Account added'+(cats.length?' with '+cats.length+' categor'+(cats.length>1?'ies':'y'):''));
+        }}>Save account</button>
+      </>}>
+      <Field label="Account name"><input className="inp" autoFocus placeholder="e.g. Vietcombank"
+        value={accForm.name} onChange={e=>setAccForm(s=>({...s,name:e.target.value}))}/></Field>
+      <Field label="Colour">
+        <div className="swatches">
+          {ACC_COLORS.map(c=>(
+            <button key={c} className={'sw'+(accColor(accForm)===c?' on':'')} style={{background:c}}
+              aria-label="Choose colour" onClick={()=>setAccForm(s=>({...s,color:c}))}/>
+          ))}
+        </div>
+      </Field>
+      <Field label="Icon">
+        <div className="swatches">
+          {ACC_ICONS.map(ic=>(
+            <button key={ic} className={'sw ic'+(accIcon(accForm)===ic?' on':'')}
+              style={accIcon(accForm)===ic?{background:accColor(accForm),color:'#fff',borderColor:accColor(accForm)}:{color:accColor(accForm)}}
+              aria-label="Choose icon"
+              onClick={()=>setAccForm(s=>({...s,icon:ic}))}><I n={ic} s={18}/></button>
+          ))}
+        </div>
+      </Field>
+
+      {!accForm.id && <>
+        <div className="hr"/>
+        <Field label="Categories">
+          <div style={{display:'flex',gap:6}}>
+            <input className="inp" placeholder="e.g. Food" value={newCat}
+              onChange={e=>setNewCat(e.target.value)}
+              onKeyDown={e=>{if(e.key==='Enter'&&newCat.trim()){e.preventDefault();
+                setAccForm(s=>({...s,cats:[...(s.cats||[]),newCat.trim()]}));setNewCat('')}}}/>
+            <button className="btn gho sm" disabled={!newCat.trim()}
+              onClick={()=>{setAccForm(s=>({...s,cats:[...(s.cats||[]),newCat.trim()]}));setNewCat('')}}>
+              Add</button>
+          </div>
+
+          {(accForm.cats||[]).length>0 && <div className="card" style={{marginTop:8}}>
+            {accForm.cats.map((c,i)=>(
+              <div className="row" key={i} style={{padding:'8px 10px',gap:8}}>
+                <span className="dot n" style={{width:24,height:24,borderRadius:7,fontSize:11}}>{i+1}</span>
+                <div className="row-b"><div className="row-t">{c}</div></div>
+                <button className="trail" aria-label={'Remove '+c}
+                  onClick={()=>setAccForm(s=>({...s,cats:s.cats.filter((_,k)=>k!==i)}))}>
+                  <I n="x" s={14}/></button>
+              </div>
+            ))}
+          </div>}
+
+          <p className="mut" style={{fontSize:12.5,margin:'8px 0 0'}}>
+            Optional. Start amounts are set later, per month.</p>
+        </Field>
+      </>}
+    </Sheet>}
+
+    {jarForm && <Sheet title="Add category" onClose={()=>setJarForm(null)}
+      footer={<button className="btn pri blk" disabled={!jarForm.name.trim()} onClick={()=>{
+        set(d=>{d.jars.push({id:uid(),accountId:jarForm.accountId,name:jarForm.name.trim()})});
+        setJarForm(null);toast('Category added');
+      }}>Add category</button>}>
+      <Field label="Category name"><input className="inp" autoFocus placeholder="e.g. Food"
+        value={jarForm.name} onChange={e=>setJarForm(s=>({...s,name:e.target.value}))}/></Field>
+    </Sheet>}
+  </div>);
+}
+
+/* ============================================================
+   8. SCREEN — CALENDAR
+   ============================================================ */
+function CalendarScreen({st,ym,openTx}){
+  const today=dstr(new Date());
+  const p=ym.split('-').map(Number);
+  const dateOf=d=>`${p[0]}-${pad(p[1])}-${pad(d)}`;
+  const [sel,setSel]=useState(()=>ymOf(new Date())===ym?today:dateOf(1));
+  useEffect(()=>{setSel(ymOf(new Date())===ym?dstr(new Date()):ym+'-01')},[ym]);
+
+  const byDay=useMemo(()=>{
+    const m={};
+    monthTxns(st,ym).forEach(t=>{
+      (m[t.date]=m[t.date]||{out:0,in:0,list:[]});
+      m[t.date].list.push(t);
+      if(t.type==='expense')m[t.date].out+=t.amount;
+      if(t.type==='income')m[t.date].in+=t.amount;
+    });
+    return m;
+  },[st,ym]);
+
+  const first=new Date(p[0],p[1]-1,1);
+  const lead=(first.getDay()+6)%7;
+  const n=dim(ym);
+  const cells=[];
+  for(let i=0;i<lead;i++)cells.push(null);
+  for(let d=1;d<=n;d++)cells.push(d);
+  while(cells.length%7)cells.push(null);
+
+  const day=byDay[sel]||{out:0,in:0,list:[]};
+  const dt=parseD(sel);
+
+  return (<div>
+    <div className="card">
+      <div className="cal">
+        {DOW.map(d=><div className="dow" key={d}>{d}</div>)}
+        {cells.map((d,i)=>{
+          if(d===null)return <div className="cel mut" key={i}/>;
+          const k=dateOf(d), v=byDay[k];
+          return (
+            <button key={i} className={'cel'+(k===today?' today':'')+(k===sel?' sel':'')}
+              aria-pressed={k===sel} onClick={()=>setSel(k)}>
+              <span className="d">{d}</span>
+              {v&&v.out>0&&<span className="v out">−{shortM(v.out)}</span>}
+              {v&&v.in>0&&<span className="v in">+{shortM(v.in)}</span>}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+
+    <div className="sec-h">
+      <h2>{DOW[(dt.getDay()+6)%7]}, {dt.getDate()} {MON[dt.getMonth()]}</h2>
+      <span className="sub">
+        {day.out>0&&<span style={{color:'var(--out)',fontWeight:600}}>−{money(day.out)}</span>}
+        {day.out>0&&day.in>0&&<span> · </span>}
+        {day.in>0&&<span style={{color:'var(--in)',fontWeight:600}}>+{money(day.in)}</span>}
+        {day.out===0&&day.in===0&&<span>No activity</span>}
+      </span>
+    </div>
+
+    <div className="card">
+      {day.list.length===0
+        ? <div className="empty"><b>Nothing on this day</b>Pick another date, or add a transaction below.</div>
+        : day.list.map(t=><TxRow key={t.id} st={st} t={t} onClick={()=>openTx(t)}/>)}
+    </div>
+
+    <button className="btn gho blk" style={{marginTop:12}} onClick={()=>openTx({date:sel})}>
+      <I n="plus" s={16}/> Add on {dt.getDate()} {MON[dt.getMonth()]}</button>
+  </div>);
+}
+
+function TxRow({st,t,onClick}){
+  const cls=t.type==='expense'?'out':t.type==='income'?'in':'move';
+  const sign=t.type==='expense'?'−':t.type==='income'?'+':'';
+  const names=(t.tagIds||[]).map(id=>{const x=tagOf(st,id);return x?x.name:null}).filter(Boolean);
+  const base=t.type==='transfer'
+    ? jarShort(st,t.fromJarId)+' → '+jarShort(st,t.toJarId)
+    : jarShort(st,t.jarId);
+  const sub=base+(names.length?' · '+names.join(', '):'');
+  return (
+    <button className="row" onClick={onClick}>
+      <div className={'dot '+cls}><I n={t.type==='transfer'?'arrow':t.type==='income'?'up':'dn'} s={16}/></div>
+      <div className="row-b">
+        <div className="row-t">{t.note||(t.type==='transfer'?'Transfer':t.type==='income'?'Income':'Expense')}</div>
+        <div className="row-s">{sub}</div>
+      </div>
+      <div className={'amt '+cls} style={{fontSize:14.5}}>{sign}{money(t.amount)}</div>
+    </button>
+  );
+}
+
+/* ============================================================
+   9. SCREEN — REPORT
+   ============================================================ */
+function ReportScreen({st,set,ym}){
+  const [pick,setPick]=useState(false);
+  const hidden=st.hiddenJars||[];
+  const cur=monthSummary(st,ym), pm=shiftYm(ym,-1), prev=monthSummary(st,pm);
+  const txns=monthTxns(st,ym);
+  const n=dim(ym);
+  const daily=Array.from({length:n},()=>0);
+  txns.forEach(t=>{if(t.type==='expense')daily[parseD(t.date).getDate()-1]+=t.amount});
+  const maxD=Math.max(...daily,1);
+  const todayD=ymOf(new Date())===ym?new Date().getDate():-1;
+
+  const byTag=useMemo(()=>{
+    const m={};
+    txns.filter(t=>t.type==='expense').forEach(t=>{
+      const ids=(t.tagIds&&t.tagIds.length)?t.tagIds:['_'];
+      const share=t.amount/ids.length;
+      ids.forEach(k=>{m[k]=(m[k]||0)+share});
+    });
+    return Object.entries(m).map(([k,v])=>{
+      const tg=tagOf(st,k);
+      return {id:k,name:tg?tg.name:'Untagged',color:tg?tg.color:'#B9BFCE',v};
+    }).sort((a,b)=>b.v-a.v);
+  },[st,ym]);
+  const tagTotal=byTag.reduce((a,b)=>a+b.v,0)||1;
+
+  const byJar=st.jars.filter(j=>!hidden.includes(j.id))
+    .map(j=>({j,...cur.js[j.id]})).filter(x=>x.open||x.out||x.in).sort((a,b)=>b.out-a.out);
+  const top=txns.filter(t=>t.type==='expense').sort((a,b)=>b.amount-a.amount).slice(0,5);
+  const delta=(a,b)=>b===0?null:Math.round(((a-b)/b)*100);
+  const dOut=delta(cur.out,prev.out), dIn=delta(cur.inc,prev.inc);
+  const prevHas=prev.inc>0||prev.out>0;
+  const dNet=cur.net-prev.net;
+
+  // donut
+  let acc=0; const R=52, C=2*Math.PI*R;
+  const arcs=byTag.slice(0,8).map(t=>{
+    const frac=t.v/tagTotal, seg={...t,dash:frac*C,off:-acc*C}; acc+=frac; return seg;
+  });
+
+  return (<div>
+    <div className="card pad">
+      <div className="eyebrow">Total income · {mLabelLong(ym)}</div>
+      <div className="num" style={{fontSize:28,fontWeight:800,letterSpacing:'-.032em',
+        margin:'1px 0 0',color:'var(--in)'}}>
+        +{money(cur.inc)} <span style={{fontSize:14,color:'var(--muted)',fontWeight:600}}>₫</span></div>
+      {dIn!=null&&<div className="dlt" style={{color:dIn>=0?'var(--in)':'var(--out)',marginTop:3}}>
+        {dIn>=0?'▲':'▼'} {Math.abs(dIn)}% vs {mLabel(pm)}</div>}
+      <div className="hr" style={{margin:'13px 0'}}/>
+      <div className="figs split">
+        <div>
+          <span className="k">Net</span>
+          <b style={{color:cur.net>=0?'var(--in)':'var(--out)'}}>
+            {cur.net>=0?'+':'−'}{money(Math.abs(cur.net))}</b>
+          {prevHas
+            ? <span className="dlt" style={{color:dNet>=0?'var(--in)':'var(--out)'}}>
+                {dNet>=0?'▲':'▼'} {money(Math.abs(dNet))} vs {mLabel(pm)}</span>
+            : <span className="dlt" style={{color:'var(--muted)'}}>Income minus expense</span>}
+        </div>
+        <div>
+          <span className="k">Total expense</span>
+          <b className="o">−{money(cur.out)}</b>
+          {dOut!=null&&<span className="dlt" style={{color:dOut>0?'var(--out)':'var(--in)'}}>
+            {dOut>=0?'▲':'▼'} {Math.abs(dOut)}% vs {mLabel(pm)}</span>}
+        </div>
+      </div>
+    </div>
+
+    <div className="two">
+      <div>
+        <div className="sec-h"><h2>Daily spending</h2><span className="sub">Peak {shortM(maxD)} ₫</span></div>
+        <div className="card pad">
+          <div className="bars">
+            {daily.map((v,i)=>(
+              <i key={i} className={i+1===todayD?'tod':(v===maxD&&v>0?'hi':'')}
+                 style={{height:Math.max(2,(v/maxD)*96)+'px'}} title={`Day ${i+1}: ${money(v)} ₫`}/>
+            ))}
+          </div>
+          <div className="vessel-legend"><span>1</span><span>{Math.round(n/2)}</span><span>{n}</span></div>
+        </div>
+
+        <div className="sec-h"><h2>Largest expenses</h2></div>
+        <div className="card">
+          {top.length===0?<div className="empty"><b>No expenses yet</b>Nothing recorded this month.</div>
+          :top.map((t,i)=>(
+            <div className="row" key={t.id}>
+              <div className="dot n" style={{fontFamily:'var(--f-disp)'}}>{i+1}</div>
+              <div className="row-b"><div className="row-t">{t.note||'Expense'}</div>
+                <div className="row-s">{parseD(t.date).getDate()}/{Number(ym.split('-')[1])} · {jarShort(st,t.jarId)}</div></div>
+              <div className="amt out" style={{fontSize:14.5}}>−{money(t.amount)}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div>
+        <div className="sec-h"><h2>Spending by tag</h2></div>
+        <div className="card pad">
+          {byTag.length===0?<div className="empty" style={{padding:'18px 0'}}><b>No data yet</b>Tag your expenses to see the breakdown.</div>:<>
+          <div style={{display:'flex',justifyContent:'center',padding:'4px 0 14px'}}>
+            <svg width="150" height="150" viewBox="0 0 140 140">
+              <g transform="rotate(-90 70 70)">
+                {arcs.map(a=>(
+                  <circle key={a.id} cx="70" cy="70" r={R} fill="none" stroke={a.color} strokeWidth="18"
+                    strokeDasharray={`${a.dash} ${C}`} strokeDashoffset={a.off}/>
+                ))}
+              </g>
+              <text x="70" y="66" textAnchor="middle" fontSize="17" fontWeight="800" fill="#14161F"
+                style={{fontFamily:'var(--f-disp)'}}>{shortM(tagTotal)}</text>
+              <text x="70" y="82" textAnchor="middle" fontSize="9.5" fill="#868DA1"
+                style={{fontFamily:'var(--f-body)'}}>Total ₫</text>
+            </svg>
+          </div>
+          {byTag.map(t=>(
+            <div key={t.id} style={{display:'flex',alignItems:'center',gap:9,padding:'6px 0'}}>
+              <span style={{width:9,height:9,borderRadius:3,background:t.color,flex:'none'}}/>
+              <span className="grow" style={{fontSize:13.5,fontWeight:500}}>{t.name}</span>
+              <span className="mut mono" style={{fontSize:12}}>{Math.round(t.v/tagTotal*100)}%</span>
+              <span className="amt" style={{fontSize:13.5,minWidth:76,textAlign:'right'}}>{money(t.v)}</span>
+            </div>
+          ))}</>}
+        </div>
+
+        <div className="sec-h"><h2>By category</h2>
+          <button className="act" onClick={()=>setPick(true)}>Customize</button></div>
+        <div className="card">
+          <table className="t">
+            <thead><tr><th>Category</th><th className="r">Spent</th><th className="r">Left</th></tr></thead>
+            <tbody>{byJar.map(x=>{
+              const pv=prev.js[x.j.id]?prev.js[x.j.id].out:0;
+              const dl=pv>0?Math.round((x.out-pv)/pv*100):null;
+              return (
+              <tr key={x.j.id}>
+                <td><div style={{fontWeight:600}}>{x.j.name}</div>
+                  <div className="row-s">{(st.accounts.find(a=>a.id===x.j.accountId)||{}).name}</div></td>
+                <td className="r mono">
+                  <div style={{color:'var(--out)',fontWeight:600}}>{x.out?'−'+money(x.out):'—'}</div>
+                  {x.out>0&&dl!==null&&dl!==0&&<div style={{fontSize:11,fontWeight:600,
+                    color:dl>0?'var(--out)':'var(--in)'}}>{dl>0?'▲':'▼'} {Math.abs(dl)}%</div>}
+                  {x.out>0&&pv===0&&<div style={{fontSize:11,color:'var(--muted)'}}>new</div>}
+                  {x.out>0&&dl===0&&<div style={{fontSize:11,color:'var(--muted)'}}>same</div>}
+                </td>
+                <td className="r mono" style={{fontWeight:700,color:x.left<0?'var(--out)':'inherit'}}>{money(x.left)}</td>
+              </tr>
+              );
+            })}</tbody>
+          </table>
+          {byJar.length===0&&<div className="empty"><b>No active categories</b>
+            {hidden.length>0?'Every category is hidden — use Customize to bring some back.':'Allocate money in the Categories tab.'}</div>}
+        </div>
+
+        {pick && <Sheet title="Show in report" onClose={()=>setPick(false)}>
+          <p className="mut" style={{fontSize:12.5,margin:'0 0 12px'}}>
+            Hidden categories still count toward totals — they just stay out of this table.</p>
+          {st.accounts.map(a=>(
+            <React.Fragment key={a.id}>
+              <div className="sec-h"><h2>{a.name}</h2></div>
+              <div className="card">
+                {st.jars.filter(j=>j.accountId===a.id).map(j=>{
+                  const on=!hidden.includes(j.id);
+                  return (
+                    <button className="row" key={j.id} onClick={()=>set(d=>{
+                      const h=d.hiddenJars||[];
+                      d.hiddenJars=h.includes(j.id)?h.filter(x=>x!==j.id):[...h,j.id];
+                    })}>
+                      <span className={'chk'+(on?' on':'')}>{on&&<I n="check" s={13}/>}</span>
+                      <div className="row-b"><div className="row-t">{j.name}</div></div>
+                    </button>
+                  );
+                })}
+              </div>
+            </React.Fragment>
+          ))}
+        </Sheet>}
+      </div>
+    </div>
+  </div>);
+}
+
+/* ============================================================
+   9a. LOANS — money I lent out
+   ============================================================ */
+function loanStat(g){
+  const paid=g.payments.filter(p=>p.paid);
+  const got=paid.reduce((a,b)=>a+b.amount,0);
+  return {paidN:paid.length,got,left:g.total-got,leftN:g.periods-paid.length,
+    next:g.payments.find(p=>!p.paid)};
+}
+function buildLoanPeriods(start,n,total,old){
+  const per=Math.round(total/n), d0=parseD(start), out=[];
+  for(let i=0;i<n;i++){
+    const d=new Date(d0.getFullYear(),d0.getMonth()+i+1,d0.getDate());
+    const o=old&&old.find(p=>p.i===i+1);
+    out.push({i:i+1,due:dstr(d),amount:o&&o.paid?o.amount:per,
+      paid:o?o.paid:false,paidAt:o?o.paidAt:null,jarId:o?o.jarId:null,txnId:o?o.txnId:null});
+  }
+  return out;
+}
+
+function LoansPage({st,set,toast}){
+  const [open,setOpen]=useState(null);
+  const [form,setForm]=useState(null);
+  const [pay,setPay]=useState(null);
+  const today=dstr(new Date());
+  const totalOut=st.loans.reduce((a,g)=>a+loanStat(g).left,0);
+
+  const saveLoan=()=>{
+    const f=form;
+    set(d=>{
+      if(f.id){
+        const g=d.loans.find(x=>x.id===f.id);
+        g.payments=buildLoanPeriods(f.date,f.periods,f.total,g.payments);
+        Object.assign(g,{name:f.name.trim(),note:f.note,total:f.total,date:f.date,
+          jarId:f.jarId,tagIds:f.tagIds,periods:f.periods});
+        const t=d.txns.find(x=>x.id===g.txnId);
+        if(t)Object.assign(t,{amount:f.total,date:f.date,jarId:f.jarId,
+          tagIds:f.tagIds,note:'Lent · '+f.name.trim()});
+      } else {
+        const txId=uid();
+        d.txns.push({id:txId,type:'expense',amount:f.total,date:f.date,jarId:f.jarId,
+          fromJarId:null,toJarId:null,tagIds:f.tagIds,note:'Lent · '+f.name.trim()});
+        d.loans.push({id:uid(),name:f.name.trim(),note:f.note,total:f.total,date:f.date,
+          jarId:f.jarId,tagIds:f.tagIds,txnId:txId,periods:f.periods,
+          payments:buildLoanPeriods(f.date,f.periods,f.total,null)});
+      }
+    });
+    setForm(null);
+    toast(f.id?'Loan updated':'Loan recorded — '+money(f.total)+' ₫ deducted');
+  };
+
+  const delLoan=g=>ask('Delete this loan? The original expense and every repayment it created will be removed too.',()=>{
+    set(d=>{
+      const ids=[g.txnId,...g.payments.map(p=>p.txnId)].filter(Boolean);
+      d.txns=d.txns.filter(t=>!ids.includes(t.id));
+      d.loans=d.loans.filter(x=>x.id!==g.id);
+    });
+    setOpen(null); toast('Loan deleted');
+  });
+
+  const confirmPay=()=>{
+    const f=pay;
+    set(d=>{
+      const g=d.loans.find(x=>x.id===f.loanId);
+      const p=g.payments.find(y=>y.i===f.i);
+      const txId=uid();
+      d.txns.push({id:txId,type:'income',amount:f.amount,date:f.date,jarId:f.jarId,
+        fromJarId:null,toJarId:null,tagIds:g.tagIds||[],note:'Repaid · '+g.name});
+      Object.assign(p,{paid:true,paidAt:f.date,jarId:f.jarId,txnId:txId,amount:f.amount});
+    });
+    setPay(null); toast(money(f.amount)+' ₫ added back');
+  };
+
+  const undoPay=(g,p)=>ask('Undo this repayment? The income transaction will be removed.',()=>{
+    set(d=>{
+      const gg=d.loans.find(x=>x.id===g.id);
+      const pp=gg.payments.find(y=>y.i===p.i);
+      if(pp.txnId) d.txns=d.txns.filter(t=>t.id!==pp.txnId);
+      Object.assign(pp,{paid:false,paidAt:null,jarId:null,txnId:null});
+    });
+  },'Undo');
+
+  return (<div style={{paddingTop:4}}>
+    <div className="card pad">
+      <div className="eyebrow">Still owed to me</div>
+      <div className="num" style={{fontSize:28,fontWeight:800,letterSpacing:'-.032em',margin:'1px 0 2px'}}>
+        {money(totalOut)} <span style={{fontSize:14,color:'var(--muted)',fontWeight:600}}>₫</span></div>
+      <div className="row-s">Across {st.loans.length} loan{st.loans.length===1?'':'s'}</div>
+    </div>
+
+    {st.loans.length===0 && <div className="card empty" style={{marginTop:12}}>
+      <b>No loans yet</b>Record money you lent out so it stops looking like spending.</div>}
+
+    {st.loans.map(g=>{
+      const s=loanStat(g), pct=(s.got/g.total)*100;
+      const due=s.next&&s.next.due<=today;
+      return (
+        <div className="card" key={g.id} style={{marginTop:12}}>
+          <button className="row" onClick={()=>setOpen(g.id)}
+            style={{alignItems:'stretch',flexDirection:'column',gap:9}}>
+            <div style={{display:'flex',alignItems:'center',gap:10,width:'100%'}}>
+              <div className="row-b">
+                <div className="row-t">{g.name} {due&&<span className="pill due">Due</span>}</div>
+                <div className="row-s">{g.note||jarShort(st,g.jarId)}</div>
+              </div>
+              <div style={{textAlign:'right'}}>
+                <div className="amt sub">{money(s.left)}</div>
+                <div className="row-s">Left</div>
+              </div>
+            </div>
+            <Vessel pct={pct}/>
+            <div style={{display:'flex',width:'100%',fontSize:11.5,color:'var(--muted)'}}>
+              <span>Lent {money(g.total)} · {s.paidN}/{g.periods} back</span>
+              <span className="grow"/>
+              <span>{s.leftN} period{s.leftN===1?'':'s'} to go</span>
+            </div>
+          </button>
+        </div>
+      );
+    })}
+
+    {open && (()=>{
+      const g=st.loans.find(x=>x.id===open); if(!g)return null;
+      const s=loanStat(g);
+      return (
+        <Sheet title={g.name} onClose={()=>setOpen(null)}
+          footer={<>
+            <button className="btn dan sm" onClick={()=>delLoan(g)}><I n="trash" s={15}/></button>
+            <button className="btn gho grow" onClick={()=>{setForm({...g});setOpen(null)}}>Edit loan</button>
+          </>}>
+          <div className="stat" style={{gridTemplateColumns:'1fr 1fr'}}>
+            <div className="s"><div className="k">Lent</div><div className="v">{money(g.total)}</div></div>
+            <div className="s"><div className="k">Back</div>
+              <div className="v" style={{color:'var(--in)'}}>{money(s.got)}</div></div>
+            <div className="s"><div className="k">Still owed</div>
+              <div className="v" style={{color:'var(--out)'}}>{money(s.left)}</div></div>
+            <div className="s"><div className="k">Taken from</div>
+              <div className="v" style={{fontSize:14,lineHeight:1.25}}>{jarShort(st,g.jarId)}</div>
+              <div style={{fontSize:11,color:'var(--muted)',marginTop:1}}>
+                {mLabelLong(ymOfDate(g.date))}</div></div>
+          </div>
+          <div className="sec-h"><h2>Repayments</h2><span className="sub">Tap to record</span></div>
+          <div className="card">
+            {g.payments.map(p=>{
+              const isDue=!p.paid&&p.due<=today;
+              return (
+                <button className="row" key={p.i} onClick={()=>p.paid?undoPay(g,p)
+                  :setPay({loanId:g.id,i:p.i,amount:p.amount,date:today,jarId:g.jarId})}
+                  style={{flexDirection:'column',alignItems:'stretch',gap:4}}>
+                  <div style={{display:'flex',alignItems:'center',gap:10}}>
+                    <div className={'chk'+(p.paid?' on':'')}>{p.paid&&<I n="check" s={13}/>}</div>
+                    <div className="row-t grow" style={{minWidth:0}}>Period {p.i}</div>
+                    {isDue&&<span className="pill due">Due</span>}
+                    <div className="amt sub" style={p.paid?{opacity:.45}:null}>{money(p.amount)}</div>
+                  </div>
+                  <div className="row-s" style={{paddingLeft:32,whiteSpace:'normal',lineHeight:1.35}}>
+                    Due {parseD(p.due).getDate()} {MON[parseD(p.due).getMonth()]} {parseD(p.due).getFullYear()}
+                    {p.paid&&p.jarId?' → '+jarShort(st,p.jarId)
+                      +' · '+mLabel(ymOfDate(p.paidAt||p.due)):''}</div>
+                </button>
+              );
+            })}
+          </div>
+          <p className="mut" style={{fontSize:12.5}}>Recording a repayment creates an income transaction
+            in the category you pick. Undoing it removes that transaction.</p>
+        </Sheet>
+      );
+    })()}
+
+    {pay && (()=>{
+      const g=st.loans.find(x=>x.id===pay.loanId);
+      return (
+        <Sheet title={'Repayment · '+(g?g.name:'')} onClose={()=>setPay(null)}
+          footer={<button className="btn pri blk" disabled={!pay.amount||!pay.jarId}
+            onClick={confirmPay}>Add to category</button>}>
+          <Field label="Amount received">
+            <MoneyInput boxed autoFocus value={pay.amount}
+              onChange={v=>setPay(s=>({...s,amount:v}))}/></Field>
+          <Field label="Date"><input className="inp" type="date" value={pay.date}
+            onChange={e=>setPay(s=>({...s,date:e.target.value}))}/></Field>
+          <Field label="Add into category">
+            <JarSelect st={st} value={pay.jarId} onChange={v=>setPay(s=>({...s,jarId:v}))}/></Field>
+          <div className="card pad" style={{marginTop:2}}>
+            <div className="tot"><span className="k">Lands in</span>
+              <span className="v" style={{fontSize:14}}>
+                {pay.jarId?jarShort(st,pay.jarId):'—'}</span></div>
+            <div className="tot"><span className="k">For the month of</span>
+              <span className="v" style={{fontSize:14}}>{mLabelLong(ymOfDate(pay.date))}</span></div>
+          </div>
+          <p className="mut" style={{fontSize:12.5,margin:'10px 0 0'}}>
+            Does not have to be the category the money came from. Changing the date moves it
+            to that month's budget.</p>
+        </Sheet>
+      );
+    })()}
+
+    {form && <Sheet title={form.id?'Edit loan':'New loan'} onClose={()=>setForm(null)}
+      footer={<button className="btn pri blk"
+        disabled={!form.name.trim()||!form.total||!form.jarId||!form.periods}
+        onClick={saveLoan}>{form.id?'Save loan':'Record loan'}</button>}>
+      <Field label="Who did you lend to"><input className="inp" autoFocus placeholder="e.g. Minh"
+        value={form.name} onChange={e=>setForm(s=>({...s,name:e.target.value}))}/></Field>
+      <Field label="Note"><input className="inp" placeholder="e.g. For his laptop"
+        value={form.note} onChange={e=>setForm(s=>({...s,note:e.target.value}))}/></Field>
+      <Field label="Amount lent">
+        <MoneyInput boxed value={form.total} onChange={v=>setForm(s=>({...s,total:v}))}/></Field>
+      <Field label="Take from category">
+        <JarSelect st={st} value={form.jarId} onChange={v=>setForm(s=>({...s,jarId:v}))}/></Field>
+      <div style={{display:'flex',gap:10}}>
+        <div className="grow"><Field label="Repaid over (periods)">
+          <input className="inp mono" type="number" min="1" max="60" value={form.periods}
+            onChange={e=>setForm(s=>({...s,periods:clamp(Number(e.target.value)||1,1,60)}))}/></Field></div>
+        <div className="grow"><Field label="Date lent"><input className="inp" type="date"
+          value={form.date} onChange={e=>setForm(s=>({...s,date:e.target.value}))}/></Field></div>
+      </div>
+      <Field label="Tags">
+        <TagPicker st={st} set={set} value={form.tagIds||[]}
+          onChange={ids=>setForm(s=>({...s,tagIds:ids}))}/>
+      </Field>
+      {form.total>0&&form.periods>0&&<div className="card pad">
+        <div className="tot"><span className="k">Each period</span>
+          <span className="v" style={{fontSize:15}}>{money(form.total/form.periods)} ₫</span></div>
+        <div className="tot"><span className="k">Taken from</span>
+          <span className="v" style={{fontSize:14}}>
+            {form.jarId?jarShort(st,form.jarId):'—'}</span></div>
+        <div className="tot"><span className="k">In the month of</span>
+          <span className="v" style={{fontSize:14}}>{mLabelLong(ymOfDate(form.date))}</span></div>
+      </div>}
+    </Sheet>}
+
+    <div className="fixed-cta">
+      <button className="btn pri blk" onClick={()=>setForm({name:'',note:'',total:0,
+        date:today,jarId:st.jars[0]?st.jars[0].id:null,tagIds:[],periods:1})}>
+        <I n="plus" s={16}/> New loan</button>
+    </div>
+  </div>);
+}
+
+/* ============================================================
+   9b. MONTH CLOSE WIZARD
+   ============================================================ */
+function AllocLine({st,it,custom,upd,dropItem,onNewCat}){
+  const inst=it.installmentId?st.installments.find(x=>x.id===it.installmentId):null;
+  const nextP=inst?inst.payments.find(p=>!p.paid):null;
+  return (
+    <div className="row" style={{flexDirection:'column',alignItems:'stretch',gap:8}}>
+      <div style={{display:'flex',alignItems:'center',gap:10}}>
+        <button className={'chk'+(it.checked?' on':'')}
+          onClick={()=>upd(it.id,{checked:!it.checked})}>
+          {it.checked&&<I n="check" s={13}/>}</button>
+        {custom
+          ? <input className="inp" style={{padding:'7px 9px',fontSize:14}} placeholder="Label, e.g. Tet fund"
+              value={it.name} onChange={e=>upd(it.id,{name:e.target.value})}/>
+          : <div className="row-b">
+              <div className="row-t">{it.name}</div>
+              {inst && <div className="row-s">{inst.name}
+                {nextP?' · period '+nextP.i+' of '+inst.periods:' · fully paid'}</div>}
+            </div>}
+        <input className="inp mono" inputMode="numeric"
+          style={{width:112,flex:'none',textAlign:'right',padding:'7px 9px',fontSize:14}}
+          value={it.amount?Number(it.amount).toLocaleString('vi-VN'):''}
+          onChange={e=>{const v=e.target.value.replace(/[^\d]/g,'');upd(it.id,{amount:v?Number(v):0})}}/>
+        {custom && <button className="trail" aria-label="Remove line"
+          onClick={()=>dropItem(it.id)}><I n="x" s={14}/></button>}
+      </div>
+      {it.checked && <div style={{display:'flex',gap:6}}>
+        <div className="grow" style={{minWidth:0}}>
+          <JarSelect st={st} value={it.jarId} onChange={v=>upd(it.id,{jarId:v})} allowEmpty/>
+        </div>
+        <button className="btn gho sm" aria-label="New category" title="New category"
+          onClick={onNewCat} style={{padding:'0 11px',flex:'none'}}><I n="plus" s={16}/></button>
+      </div>}
+      {it.checked && !it.jarId &&
+        <div style={{color:'var(--warn)',fontSize:12,fontWeight:600}}>Pick a category for this line</div>}
+    </div>
+  );
+}
+
+function CloseMonth({st,set,ym,setYm,toast,onDone}){
+  const next=shiftYm(ym,1);
+  const s=useMemo(()=>monthSummary(st,ym),[st,ym]);
+  const [step,setStep]=useState(1);
+  const [carry,setCarry]=useState(()=>{const m={};st.jars.forEach(j=>{m[j.id]=true});return m});
+  const [income,setIncome]=useState(0);
+  const [items,setItems]=useState(()=>st.template.map(t=>({...t,checked:true})));
+  const [newJarFor,setNewJarFor]=useState(null);
+  const [njName,setNjName]=useState('');
+  const [njAcc,setNjAcc]=useState(()=>st.accounts[0]?st.accounts[0].id:null);
+  const [restJar,setRestJar]=useState(()=>{
+    const sv=st.jars.find(j=>/sav|invest/i.test(j.name));
+    return sv?sv.id:(st.jars[0]?st.jars[0].id:null);
+  });
+
+  const carryTotal=st.jars.reduce((a,j)=>a+(carry[j.id]?s.js[j.id].left:0),0);
+  const available=income;
+  const newTotal=carryTotal+income;
+  const allocated=items.filter(i=>i.checked).reduce((a,b)=>a+b.amount,0);
+  const remainder=available-allocated;
+  const already=!!(st.plans[next]&&st.plans[next].appliedAt);
+  const upd=(id,patch)=>setItems(list=>list.map(i=>i.id===id?{...i,...patch}:i));
+  const unassigned=items.filter(i=>i.checked&&!i.jarId).length;
+  const addCustom=()=>setItems(l=>[...l,{id:uid(),name:'',amount:Math.max(0,remainder),
+    jarId:null,checked:true,custom:true}]);
+  const dropItem=id=>setItems(l=>l.filter(i=>i.id!==id));
+  const base=Math.max(income,allocated,1);
+  const segs=[
+    ...GROUPS.map(g=>({k:g.k,c:g.c,t:g.n,
+      v:items.filter(i=>i.checked&&!i.custom&&i.group===g.k).reduce((a,b)=>a+b.amount,0)})),
+    {k:'custom',c:CUSTOM_C,t:'Your own splits',
+      v:items.filter(i=>i.checked&&i.custom).reduce((a,b)=>a+b.amount,0)}
+  ].filter(x=>x.v>0);
+  const blocked = unassigned>0
+    ? unassigned+' line'+(unassigned>1?'s':'')+' need a category'
+    : (remainder!==0 && !restJar) ? 'Choose where the remainder goes' : null;
+
+  const commit=()=>{
+    const o={};
+    st.jars.forEach(j=>{o[j.id]=carry[j.id]?s.js[j.id].left:0});
+    items.filter(i=>i.checked&&i.jarId).forEach(i=>{o[i.jarId]=(o[i.jarId]||0)+i.amount});
+    if(restJar&&remainder!==0)o[restJar]=(o[restJar]||0)+remainder;
+    set(d=>{
+      d.openings[next]=o;
+      d.plans[next]={items:items.filter(i=>i.checked),appliedAt:dstr(new Date()),
+        income,carried:carryTotal,allocated,remainder};
+      d.closes=d.closes||{};
+      d.closes[ym]={at:dstr(new Date()),carried:carryTotal,income,allocated,remainder};
+    });
+    setYm(next); onDone();
+    toast(mLabelLong(next)+' is ready');
+  };
+
+  const custom=items.filter(i=>i.custom);
+
+  if(st.jars.length===0) return (
+    <div className="empty" style={{paddingTop:60}}>
+      <b>No categories yet</b>Add an account and some categories before closing a month.</div>
+  );
+
+  return (<div style={{paddingTop:4}}>
+    <div className="steps">
+      {[1,2,3].map(n=><i key={n} className={step>=n?'on':''}/>)}
+    </div>
+
+    {step===1 && <>
+      <div className="step-h">Ending balances</div>
+      <p className="step-s">Pick what carries into {mLabelLong(next)}. An overspent category carries a
+        negative amount, so the shortfall follows you instead of disappearing.</p>
+
+      {already && <div className="card pad warn-card" style={{marginBottom:12}}>
+        <div className="row-t" style={{color:'var(--warn)'}}>{mLabelLong(next)} already has a plan</div>
+        <div className="row-s">Finishing this close will replace it.</div>
+      </div>}
+
+      {st.accounts.map(a=>(
+        <React.Fragment key={a.id}>
+          <div className="sec-h"><h2>{a.name}</h2></div>
+          <div className="card">
+            {st.jars.filter(j=>j.accountId===a.id).map(j=>{
+              const d=s.js[j.id];
+              return (
+                <button className="row" key={j.id}
+                  onClick={()=>setCarry(c=>({...c,[j.id]:!c[j.id]}))}>
+                  <span className={'chk'+(carry[j.id]?' on':'')}>
+                    {carry[j.id]&&<I n="check" s={13}/>}</span>
+                  <div className="row-b">
+                    <div className="row-t">{j.name}</div>
+                    <div className="row-s">{carry[j.id]?'Carries over':'Resets to 0'}</div>
+                  </div>
+                  <div className={'amt sub'+(d.left<0?' neg':'')}
+                    style={carry[j.id]?null:{opacity:.35}}>{money(d.left)}</div>
+                </button>
+              );
+            })}
+          </div>
+        </React.Fragment>
+      ))}
+
+      <div className="card pad" style={{marginTop:12}}>
+        <div className="tot"><span className="k">Carrying into {mLabelLong(next)}</span>
+          <span className="v" style={{color:carryTotal<0?'var(--out)':'var(--ink)'}}>{money(carryTotal)} ₫</span></div>
+      </div>
+    </>}
+
+    {step===2 && <>
+      <div className="step-h">Income for {mLabelLong(next)}</div>
+      <p className="step-s">Salary and anything else arriving at the start of the month.</p>
+      <div className="card pad">
+        <Field label="Income">
+          <MoneyInput boxed autoFocus value={income} onChange={setIncome}/>
+        </Field>
+        <div className="hr"/>
+        <div className="tot"><span className="k">Already carried into categories</span>
+          <span className="v" style={{color:carryTotal<0?'var(--out)':'var(--ink)'}}>{money(carryTotal)}</span></div>
+        <div className="tot"><span className="k" style={{color:'var(--ink)'}}>To allocate now</span>
+          <span className="v" style={{color:'var(--indigo)'}}>{money(income)} ₫</span></div>
+        <div className="hr"/>
+        <div className="tot"><span className="k">{mLabelLong(next)} will start with</span>
+          <span className="v">{money(newTotal)} ₫</span></div>
+      </div>
+    </>}
+
+    {step===3 && <>
+      <div className="step-h">Allocate {mLabelLong(next)}</div>
+      <p className="step-s">Your plan template is only a starting point — change any amount, switch any
+        category, or add your own lines to split what is left however you want.</p>
+
+      {GROUPS.map(g=>{
+        const list=items.filter(i=>!i.custom&&i.group===g.k);
+        if(list.length===0)return null;
+        return (
+          <React.Fragment key={g.k}>
+            <div className="sec-h"><span className="gdot" style={{background:g.c}}/><h2>{g.n}</h2>
+              <span className="sub">{money(list.filter(i=>i.checked).reduce((a,b)=>a+b.amount,0))} ₫</span></div>
+            <div className="card">{list.map(it=>
+              <AllocLine key={it.id} st={st} it={it} upd={upd} dropItem={dropItem}
+                onNewCat={()=>{setNjName('');setNewJarFor(it.id)}}/>)}</div>
+          </React.Fragment>
+        );
+      })}
+
+      <div className="sec-h"><span className="gdot" style={{background:CUSTOM_C}}/><h2>Your own splits</h2>
+        <span className="sub">{money(custom.filter(i=>i.checked).reduce((a,b)=>a+b.amount,0))} ₫</span></div>
+      <div className="card">
+        {custom.length===0
+          ? <div className="empty" style={{padding:'20px 16px'}}>
+              <b>Nothing extra yet</b>Add a line to send part of the remaining money anywhere you like.</div>
+          : custom.map(it=>
+              <AllocLine key={it.id} st={st} it={it} custom upd={upd} dropItem={dropItem}
+                onNewCat={()=>{setNjName('');setNewJarFor(it.id)}}/>)}
+        <div className="row">
+          <button className="lnk" onClick={addCustom}>
+            {remainder>0?'+ Allocate the remaining '+money(remainder)+' ₫':'+ Add a split'}</button>
+        </div>
+      </div>
+
+      <div className="card pad" style={{marginTop:12}}>
+        <div className="tot"><span className="k">Income to allocate</span><span className="v">{money(income)}</span></div>
+        <div className="tot"><span className="k">Allocated</span><span className="v">−{money(allocated)}</span></div>
+        <div className="hr"/>
+        <div className="tot"><span className="k" style={{color:'var(--ink)'}}>Remaining</span>
+          <span className="v" style={{color:remainder<0?'var(--out)':remainder>0?'var(--warn)':'var(--in)'}}>
+            {money(remainder)} ₫</span></div>
+
+        {remainder!==0 && <>
+          <div className="hr"/>
+          <Field label={remainder>0?'Park anything still left in':'Take the shortfall from'}>
+            <JarSelect st={st} value={restJar} onChange={setRestJar} allowEmpty/>
+          </Field>
+          <p className="mut" style={{fontSize:12.5,margin:0}}>
+            {remainder>0
+              ? 'Keep this separate from planned savings — it tells you whether a good month was intentional or just quiet.'
+              : 'You allocated more than your income, so the difference comes out of carried-over money.'}</p>
+        </>}
+
+        {remainder===0 && <p style={{color:'var(--in)',fontSize:12.5,fontWeight:600,margin:'11px 0 0'}}>
+          Every đồng has a job.</p>}
+
+        <div className="hr"/>
+        <div className="tot"><span className="k">Carried over</span><span className="v">{money(carryTotal)}</span></div>
+        <div className="tot"><span className="k">Income</span><span className="v">{money(income)}</span></div>
+        <div className="hr"/>
+        <div className="tot"><span className="k" style={{color:'var(--ink)'}}>{mLabelLong(next)} starts with</span>
+          <span className="v" style={{color:'var(--indigo)'}}>{money(newTotal)} ₫</span></div>
+      </div>
+    </>}
+
+    {newJarFor && <Sheet title="New category" onClose={()=>setNewJarFor(null)}
+      footer={<button className="btn pri blk" disabled={!njName.trim()||!njAcc} onClick={()=>{
+        const id=uid();
+        set(d=>{d.jars.push({id,accountId:njAcc,name:njName.trim()})});
+        upd(newJarFor,{jarId:id});
+        setNewJarFor(null); setNjName('');
+      }}>Create and assign</button>}>
+      <Field label="Account">
+        <select className="inp" value={njAcc||''} onChange={e=>setNjAcc(e.target.value)}>
+          {st.accounts.map(a=><option key={a.id} value={a.id}>{a.name}</option>)}
+        </select>
+      </Field>
+      <Field label="Category name"><input className="inp" autoFocus placeholder="e.g. Sinking fund"
+        value={njName} onChange={e=>setNjName(e.target.value)}/></Field>
+      <p className="mut" style={{fontSize:12.5,margin:0}}>
+        It starts at zero and receives this item's allocation.</p>
+    </Sheet>}
+
+    <div className="fixed-cta">
+      {step===3 && <>
+        <div className="cta-sum" style={{marginBottom:7}}>
+          <span>Remaining to allocate</span>
+          <b style={{color:remainder<0?'var(--out)':remainder>0?'var(--warn)':'var(--in)'}}>
+            {money(remainder)} ₫</b>
+        </div>
+        <div className="allocbar">
+          {segs.map(sg=><i key={sg.k} title={sg.t+' · '+money(sg.v)+' ₫'}
+            style={{width:(sg.v/base*100)+'%',background:sg.c}}/>)}
+          {remainder<0 && <span className="over" style={{left:(income/base*100)+'%'}}
+            title="Income ends here"/>}
+        </div>
+      </>}
+      <div className="cta-row">
+        {step>1 && <button className="btn gho" onClick={()=>setStep(step-1)}>Back</button>}
+        {step<3
+          ? <button className="btn pri grow" onClick={()=>setStep(step+1)}>Continue</button>
+          : <button className="btn pri grow" disabled={blocked!==null} onClick={commit}>
+              {blocked||('Close '+mLabelLong(ym))}</button>}
+      </div>
+    </div>
+  </div>);
+}
+
+/* ============================================================
+   10. SCREEN — PLAN (checklist + installments)
+   ============================================================ */
+function PlanSetup({st,set,toast}){
+  const [form,setForm]=useState(null);
+  const total=st.template.reduce((a,b)=>a+b.amount,0);
+  const missing=st.template.filter(t=>!t.jarId).length;
+  const instOf=id=>st.installments.find(x=>x.id===id);
+
+  const save=()=>{
+    set(d=>{
+      const rec={id:form.id||uid(),group:form.group,name:form.name.trim(),amount:form.amount,
+        jarId:form.jarId,installmentId:form.group==='debt'?form.installmentId:null};
+      if(form.id){const i=d.template.findIndex(x=>x.id===form.id);d.template[i]=rec}
+      else d.template.push(rec);
+    });
+    setForm(null); toast('Plan item saved');
+  };
+
+  return (<div>
+    <div className="card pad">
+      <div className="eyebrow">Monthly plan template</div>
+      <div className="num" style={{fontSize:28,fontWeight:800,letterSpacing:'-.032em',margin:'2px 0 2px'}}>
+        {money(total)} <span style={{fontSize:14,color:'var(--muted)',fontWeight:600}}>₫</span></div>
+      <div className="row-s">Used as the starting point every time you close a month</div>
+      <div className="hr"/>
+      <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+        {GROUPS.map(g=>{
+          const v=st.template.filter(i=>i.group===g.k).reduce((a,b)=>a+b.amount,0);
+          const pct=total>0?Math.round(v/total*100):0;
+          return <span className="pill wait" key={g.k}>{g.n}: {shortM(v)}
+            <b style={{color:'var(--ink2)',marginLeft:2}}>{pct}%</b></span>;
+        })}
+      </div>
+      {missing>0 && <p style={{color:'var(--warn)',fontSize:12.5,margin:'11px 0 0'}}>
+        {missing} item{missing>1?'s have':' has'} no category. You will be asked to pick one when closing a month.</p>}
+    </div>
+
+    {GROUPS.map(g=>{
+      const items=st.template.filter(i=>i.group===g.k);
+      if(items.length===0)return null;
+      return (
+        <React.Fragment key={g.k}>
+          <div className="sec-h"><h2>{g.n}</h2>
+            <span className="sub">{money(items.reduce((a,b)=>a+b.amount,0))} ₫</span></div>
+          <div className="card">
+            {items.map(it=>{
+              const inst=it.installmentId?instOf(it.installmentId):null;
+              return (
+                <button className="row" key={it.id} onClick={()=>setForm({...it})}>
+                  <div className="row-b">
+                    <div className="row-t">{it.name}</div>
+                    <div className="row-s" style={!it.jarId?{color:'var(--warn)'}:null}>
+                      {it.jarId?jarName(st,it.jarId):'No category yet'}
+                      {inst?' · linked to '+inst.name:''}
+                    </div>
+                  </div>
+                  <div className="amt sub">{money(it.amount)}</div>
+                </button>
+              );
+            })}
+          </div>
+        </React.Fragment>
+      );
+    })}
+
+    {st.template.length===0 && <div className="card empty">
+      <b>No plan items yet</b>Add the fixed costs, debts and savings you set aside every month.</div>}
+
+    <div className="fixed-cta">
+      <button className="btn pri blk"
+        onClick={()=>setForm({group:'basic',name:'',amount:0,jarId:null,installmentId:null})}>
+        <I n="plus" s={16}/> Add item</button>
+    </div>
+
+    {form && <Sheet title={form.id?'Edit item':'Add item'} onClose={()=>setForm(null)}
+      footer={<>
+        {form.id&&<button className="btn dan sm" onClick={()=>ask('Remove this item from the plan?',()=>{
+          set(d=>{d.template=d.template.filter(x=>x.id!==form.id)});setForm(null);toast('Item removed');
+        },'Remove')}><I n="trash" s={15}/></button>}
+        <button className="btn pri grow" disabled={!form.name.trim()} onClick={save}>Save item</button>
+      </>}>
+      <Field label="Group">
+        <div className="seg">{GROUPS.map(g=><button key={g.k} className={form.group===g.k?'on':''}
+          onClick={()=>setForm(s=>({...s,group:g.k,installmentId:g.k==='debt'?s.installmentId:null}))}>{g.n}</button>)}</div>
+      </Field>
+
+      {form.group==='debt' && <Field label="Linked installment">
+        <select className="inp" value={form.installmentId||''} onChange={e=>{
+          const id=e.target.value||null;
+          const g=st.installments.find(x=>x.id===id);
+          setForm(s=>({...s,installmentId:id,
+            amount:g?g.per:s.amount,
+            name:g&&!s.name.trim()?g.name:s.name,
+            jarId:g&&g.jarId&&!s.jarId?g.jarId:s.jarId}));
+        }}>
+          <option value="">— Not linked —</option>
+          {st.installments.map(g=>{
+            const paid=g.payments.filter(p=>p.paid).length;
+            return <option key={g.id} value={g.id}>{g.name} — {money(g.per)} ₫ · {paid}/{g.periods} paid</option>;
+          })}
+        </select>
+        {st.installments.length===0 && <p className="mut" style={{fontSize:12.5,margin:'7px 0 0'}}>
+          No installments yet. Add one in the Installments tab.</p>}
+      </Field>}
+
+      <Field label="Name"><input className="inp" autoFocus placeholder="e.g. Rent"
+        value={form.name} onChange={e=>setForm(s=>({...s,name:e.target.value}))}/></Field>
+      <Field label="Planned amount">
+        <MoneyInput boxed value={form.amount} onChange={v=>setForm(s=>({...s,amount:v}))}/></Field>
+      <Field label="Category"><JarSelect st={st} value={form.jarId}
+        onChange={v=>setForm(s=>({...s,jarId:v}))} allowEmpty/></Field>
+      <p className="mut" style={{fontSize:12.5,margin:0}}>
+        This is a template only. Nothing moves until you close a month.</p>
+    </Sheet>}
+  </div>);
+}
+
+function Installments({st,set,toast}){
+  const [open,setOpen]=useState(null);
+  const [form,setForm]=useState(null);
+  const today=dstr(new Date());
+
+  const stat=g=>{
+    const paid=g.payments.filter(p=>p.paid);
+    const paidAmt=paid.reduce((a,b)=>a+b.amount,0);
+    const next=g.payments.find(p=>!p.paid);
+    return {paidN:paid.length,paidAmt,left:g.total-paidAmt,leftN:g.periods-paid.length,next};
+  };
+
+  return (<div>
+    <div className="sec-h"><h2>Installments</h2>
+      <button className="act" onClick={()=>setForm({name:'',note:'',total:0,periods:12,start:today,jarId:null})}>+ Add installment</button></div>
+
+    {st.installments.length===0&&<div className="card empty"><b>No installments yet</b>Add one to track every period you owe.</div>}
+
+    {st.installments.map(g=>{
+      const s=stat(g), pct=(s.paidN/g.periods)*100;
+      const due=s.next&&s.next.due<=today;
+      return (
+        <div className="card" key={g.id}>
+          <button className="row" onClick={()=>setOpen(g.id)} style={{alignItems:'stretch',flexDirection:'column',gap:9}}>
+            <div style={{display:'flex',alignItems:'center',gap:10,width:'100%'}}>
+              <div className="row-b">
+                <div className="row-t">{g.name} {due&&<span className="pill due">Due</span>}</div>
+                <div className="row-s">{g.note||'—'}</div>
+              </div>
+              <div style={{textAlign:'right'}}>
+                <div className="amt" style={{fontSize:15}}>{money(g.per||g.payments[0].amount)}</div>
+                <div className="row-s">Per period</div>
+              </div>
+            </div>
+            <Vessel pct={pct} md/>
+            <div style={{display:'flex',width:'100%',fontSize:11.5,color:'var(--muted)'}}>
+              <span>Period {Math.min(s.paidN+1,g.periods)} of {g.periods} · Paid {money(s.paidAmt)}</span>
+              <span className="grow"/>
+              <span>{s.leftN} periods left · {money(s.left)} ₫</span>
+            </div>
+          </button>
+        </div>
+      );
+    })}
+
+    {open && (()=>{
+      const g=st.installments.find(x=>x.id===open); if(!g)return null;
+      const s=stat(g);
+      return (
+        <Sheet title={g.name} onClose={()=>setOpen(null)}
+          footer={<>
+            <button className="btn dan sm" onClick={()=>ask('Delete this installment?',()=>{
+              set(d=>{d.installments=d.installments.filter(x=>x.id!==g.id)});setOpen(null);toast('Installment deleted');
+            })}><I n="trash" s={15}/></button>
+            <button className="btn gho grow" onClick={()=>{setForm({...g});setOpen(null)}}>Edit installment</button>
+          </>}>
+          <div className="stat" style={{gridTemplateColumns:'1fr 1fr'}}>
+            <div className="s"><div className="k">Total amount</div><div className="v">{money(g.total)}</div></div>
+            <div className="s"><div className="k">Paid</div><div className="v" style={{color:'var(--in)'}}>{money(s.paidAmt)}</div></div>
+            <div className="s"><div className="k">Remaining</div><div className="v" style={{color:'var(--out)'}}>{money(s.left)}</div></div>
+            <div className="s"><div className="k">Current period</div><div className="v">{Math.min(s.paidN+1,g.periods)}<span style={{fontSize:14,color:'var(--muted)'}}>/{g.periods}</span></div></div>
+          </div>
+          <div className="sec-h"><h2>Payment schedule</h2><span className="sub">Tap to toggle status</span></div>
+          <div className="card">
+            {g.payments.map(p=>{
+              const isDue=!p.paid&&p.due<=today;
+              return (
+                <button className="row" key={p.i} onClick={()=>set(d=>{
+                  const gg=d.installments.find(x=>x.id===g.id);
+                  const pp=gg.payments.find(y=>y.i===p.i);
+                  pp.paid=!pp.paid; pp.paidAt=pp.paid?dstr(new Date()):null;
+                })}>
+                  <div className={'chk'+(p.paid?' on':'')}>{p.paid&&<I n="check" s={13}/>}</div>
+                  <div className="row-b">
+                    <div className="row-t">Period {p.i}</div>
+                    <div className="row-s">Due {parseD(p.due).getDate()} {MON[parseD(p.due).getMonth()]} {parseD(p.due).getFullYear()}
+                      {p.paid&&p.paidAt?' · Paid '+parseD(p.paidAt).getDate()+' '+MON[parseD(p.paidAt).getMonth()]:''}</div>
+                  </div>
+                  {isDue&&<span className="pill due">Overdue</span>}
+                  <div className="amt" style={{fontSize:14,opacity:p.paid?.45:1}}>{money(p.amount)}</div>
+                </button>
+              );
+            })}
+          </div>
+          <p className="mut" style={{fontSize:12.5}}>Marking a period paid does not deduct from any category — record that expense separately.</p>
+        </Sheet>
+      );
+    })()}
+
+    {form && <Sheet title={form.id?'Edit installment':'Add installment'} onClose={()=>setForm(null)}
+      footer={<button className="btn pri blk" disabled={!form.name.trim()||!form.total||!form.periods} onClick={()=>{
+        const per=Math.round(form.total/form.periods);
+        set(d=>{
+          if(form.id){
+            const g=d.installments.find(x=>x.id===form.id);
+            const paidMap={}; g.payments.forEach(p=>paidMap[p.i]=p);
+            const d0=parseD(form.start), pay=[];
+            for(let i=0;i<form.periods;i++){
+              const dt=new Date(d0.getFullYear(),d0.getMonth()+i,d0.getDate());
+              const old=paidMap[i+1];
+              pay.push({i:i+1,due:dstr(dt),amount:per,paid:old?old.paid:false,paidAt:old?old.paidAt:null});
+            }
+            Object.assign(g,{name:form.name.trim(),note:form.note,total:form.total,periods:form.periods,per,start:form.start,jarId:form.jarId,payments:pay});
+          } else {
+            const d0=parseD(form.start), pay=[];
+            for(let i=0;i<form.periods;i++){
+              const dt=new Date(d0.getFullYear(),d0.getMonth()+i,d0.getDate());
+              pay.push({i:i+1,due:dstr(dt),amount:per,paid:false,paidAt:null});
+            }
+            d.installments.push({id:uid(),name:form.name.trim(),note:form.note,total:form.total,periods:form.periods,per,start:form.start,jarId:form.jarId,payments:pay});
+          }
+        });
+        setForm(null);toast('Installment saved');
+      }}>Save installment</button>}>
+      <Field label="What is it for"><input className="inp" autoFocus placeholder="e.g. iPhone 16 Pro"
+        value={form.name} onChange={e=>setForm(s=>({...s,name:e.target.value}))}/></Field>
+      <Field label="Note"><input className="inp" placeholder="e.g. VCB credit card, 0%"
+        value={form.note} onChange={e=>setForm(s=>({...s,note:e.target.value}))}/></Field>
+      <Field label="Total amount"><MoneyInput boxed value={form.total} onChange={v=>setForm(s=>({...s,total:v}))}/></Field>
+      <div style={{display:'flex',gap:10}}>
+        <div className="grow"><Field label="Number of periods"><input className="inp mono" type="number" min="1" max="120"
+          value={form.periods} onChange={e=>setForm(s=>({...s,periods:clamp(Number(e.target.value)||1,1,120)}))}/></Field></div>
+        <div className="grow"><Field label="First period date"><input className="inp" type="date"
+          value={form.start} onChange={e=>setForm(s=>({...s,start:e.target.value}))}/></Field></div>
+      </div>
+      <Field label="Paid from category (reference)"><JarSelect st={st} value={form.jarId} onChange={v=>setForm(s=>({...s,jarId:v}))} allowEmpty/></Field>
+      {form.total>0&&form.periods>0&&<p className="mut" style={{fontSize:13,margin:0}}>
+        Per period: <b className="mono" style={{color:'var(--ink)'}}>{money(form.total/form.periods)} ₫</b></p>}
+    </Sheet>}
+  </div>);
+}
+
+/* ============================================================
+   11. TRANSACTION SHEET
+   ============================================================ */
+function TxSheet({st,set,tx,onClose,toast}){
+  const isNew=!tx.id;
+  const [f,setF]=useState(()=>({
+    id:tx.id||null,
+    type:tx.type||'expense',
+    amount:tx.amount||0,
+    date:tx.date||dstr(new Date()),
+    jarId:tx.jarId||(st.jars[0]?st.jars[0].id:null),
+    fromJarId:tx.fromJarId||(st.jars[0]?st.jars[0].id:null),
+    toJarId:tx.toJarId||(st.jars[1]?st.jars[1].id:null),
+    tagIds:tx.tagIds||[],
+    note:tx.note||'',
+  }));
+  const valid=f.amount>0 && (f.type==='transfer'?(f.fromJarId&&f.toJarId&&f.fromJarId!==f.toJarId):!!f.jarId);
+
+  const save=()=>{
+    set(d=>{
+      const rec={id:f.id||uid(),type:f.type,amount:f.amount,date:f.date,note:f.note.trim(),
+        jarId:f.type==='transfer'?null:f.jarId,
+        fromJarId:f.type==='transfer'?f.fromJarId:null,
+        toJarId:f.type==='transfer'?f.toJarId:null,
+        tagIds:f.tagIds};
+      if(f.id){const i=d.txns.findIndex(x=>x.id===f.id);d.txns[i]=rec} else d.txns.push(rec);
+    });
+    onClose(); toast(isNew?'Transaction added':'Transaction updated');
+  };
+  const del=()=>ask('Delete this transaction?',()=>{
+    set(d=>{d.txns=d.txns.filter(x=>x.id!==f.id)}); onClose(); toast('Transaction deleted');
+  });
+
+  return (
+    <Sheet title={isNew?'Add transaction':'Edit transaction'} onClose={onClose}
+      footer={<>
+        {!isNew&&<button className="btn dan sm" onClick={del}><I n="trash" s={15}/></button>}
+        <button className="btn pri grow" disabled={!valid} onClick={save}>
+          {isNew?'Save transaction':'Save changes'}</button>
+      </>}>
+      <div className="seg" style={{marginBottom:14}}>
+        {[['expense','Expense','out'],['income','Income','in'],['transfer','Transfer','move']].map(([k,n,c])=>
+          <button key={k} className={f.type===k?'on '+c:''} onClick={()=>setF(s=>({...s,type:k}))}>{n}</button>)}
+      </div>
+
+      <Field label="Amount">
+        <MoneyInput boxed autoFocus value={f.amount} onChange={v=>setF(s=>({...s,amount:v}))}/>
+      </Field>
+
+      <Field label="Name"><input className="inp" placeholder="e.g. Groceries"
+        value={f.note} onChange={e=>setF(s=>({...s,note:e.target.value}))}/></Field>
+
+      {f.type==='transfer'?(<>
+        <Field label="From category"><JarSelect st={st} value={f.fromJarId} onChange={v=>setF(s=>({...s,fromJarId:v}))}/></Field>
+        <Field label="To category"><JarSelect st={st} value={f.toJarId} onChange={v=>setF(s=>({...s,toJarId:v}))}/></Field>
+        {f.fromJarId===f.toJarId&&<p style={{color:'var(--out)',fontSize:12.5,marginTop:-6}}>Pick two different categories.</p>}
+      </>):(
+        <Field label={f.type==='expense'?'Deduct from category':'Add to category'}>
+          <JarSelect st={st} value={f.jarId} onChange={v=>setF(s=>({...s,jarId:v}))}/></Field>
+      )}
+
+      <Field label="Tag">
+        <TagPicker st={st} set={set} value={f.tagIds}
+          onChange={ids=>setF(s=>({...s,tagIds:ids}))}/>
+      </Field>
+
+      <Field label="Date"><input className="inp" type="date" value={f.date}
+        onChange={e=>setF(s=>({...s,date:e.target.value}))}/></Field>
+    </Sheet>
+  );
+}
+
+/* ============================================================
+   12. APP
+   ============================================================ */
+const TABS=[
+  {k:'jars',n:'Categories',i:'wallet'},
+  {k:'cal',n:'Calendar',i:'cal'},
+  {k:'add',n:'Add',i:'plus'},
+  {k:'rep',n:'Report',i:'chart'},
+  {k:'plan',n:'Installments',i:'card'},
+];
+
+function App(){
+  const [st,setSt]=useState(null);
+  const [tab,setTab]=useState('jars');
+  const [ym,setYm]=useState(ymOf(new Date()));
+  const [tx,setTx]=useState(null);
+  const [msg,setMsg]=useState(null);
+  const [cfg,setCfg]=useState(false);
+  const [box,setBox]=useState(null);
+  const [catId,setCatId]=useState(null);
+  const [closing,setClosing]=useState(false);
+  const [planPage,setPlanPage]=useState(false);
+  const [loanPage,setLoanPage]=useState(false);
+
+  useEffect(()=>{(async()=>{const s=await loadState();setSt(migrate(s||seed()))})()},[]);
+  useEffect(()=>{if(st)saveState(st)},[st]);
+  useEffect(()=>{_ask=(msg,onOk,okLabel)=>setBox({msg,onOk,okLabel:okLabel||'Delete'});
+    return()=>{_ask=null}},[]);
+
+  const set=fn=>setSt(prev=>{const d=JSON.parse(JSON.stringify(prev));fn(d);return d});
+  const toast=t=>{setMsg(t);clearTimeout(window.__tt);window.__tt=setTimeout(()=>setMsg(null),2200)};
+  const openTx=t=>setTx(t||{});
+
+  if(!st)return <div className="empty" style={{paddingTop:120}}>Loading…</div>;
+
+  const catJar=catId?st.jars.find(x=>x.id===catId):null;
+  const sub=!!catJar||closing||planPage||loanPage;
+  const subTitle=closing?('Close '+mLabelLong(ym))
+    :planPage?'Plan template':loanPage?'Money I lent':(catJar?catJar.name:'');
+  const leaveSub=()=>{setCatId(null);setClosing(false);setPlanPage(false);setLoanPage(false)};
+  const go=k=>{
+    setCatId(null); setClosing(false); setPlanPage(false); setLoanPage(false);
+    if(k==='add') openTx({date: ymOf(new Date())===ym ? dstr(new Date()) : ym+'-01'});
+    else setTab(k);
+  };
+  const Screen={jars:JarsScreen,cal:CalendarScreen,rep:ReportScreen,plan:Installments}[tab];
+
+  return (
+    <div className="app">
+      <nav className="rail">
+        <div className="brand" style={{padding:'6px 12px 14px'}}>
+          <span style={{width:26,height:26,borderRadius:8,background:'var(--indigo)',color:'#fff',display:'grid',placeItems:'center'}}>
+            <I n="book" s={15}/></span>
+          Ledger
+        </div>
+        {TABS.filter(t=>t.k!=='add').map(t=>(
+          <button key={t.k} className={'rb'+(tab===t.k&&!sub?' on':'')} onClick={()=>go(t.k)}>
+            <I n={t.i} s={18}/>{t.n}</button>
+        ))}
+        <button className="rb add" onClick={()=>go('add')}><I n="plus" s={18}/>Add transaction</button>
+        <div className="grow"/>
+        <button className="rb" onClick={()=>setCfg(true)}><I n="cog" s={18}/>Data</button>
+      </nav>
+
+      <main className={'main'+(sub?' sub':'')}>
+        <div className="topbar"><div className="topbar-in">
+          {sub ? (<>
+            <button className="iconbtn" onClick={leaveSub} aria-label="Back">
+              <I n="left" s={17}/></button>
+            <div className="topbar-t">{subTitle}</div>
+          </>) : (<>
+            <div className="brand only-mob">
+              <span style={{width:24,height:24,borderRadius:7,background:'var(--indigo)',color:'#fff',display:'grid',placeItems:'center'}}>
+                <I n="book" s={14}/></span>Ledger
+            </div>
+            <div className="mswitch">
+              <button onClick={()=>setYm(y=>shiftYm(y,-1))} aria-label="Previous month"><I n="left" s={15}/></button>
+              <span className="lbl">{mLabelLong(ym)}</span>
+              <button onClick={()=>setYm(y=>shiftYm(y,1))} aria-label="Next month"><I n="right" s={15}/></button>
+            </div>
+            <button className="iconbtn" onClick={()=>setCfg(true)} aria-label="Data"><I n="cog" s={16}/></button>
+          </>)}
+        </div></div>
+
+        {closing
+          ? <CloseMonth st={st} set={set} ym={ym} setYm={setYm} toast={toast}
+              onDone={()=>setClosing(false)}/>
+          : planPage
+          ? <PlanSetup st={st} set={set} toast={toast}/>
+          : loanPage
+          ? <LoansPage st={st} set={set} toast={toast}/>
+          : <Screen st={st} set={set} ym={ym} setYm={setYm} toast={toast} openTx={openTx}
+              catId={catId} setCatId={setCatId} openClose={()=>setClosing(true)}/>}
+      </main>
+
+      {!sub && <nav className="nav">
+        {TABS.map(t=>t.k==='add'
+          ? <button key={t.k} className="fab" onClick={()=>go('add')} aria-label="Add transaction"><i><I n="plus" s={23}/></i></button>
+          : <button key={t.k} className={tab===t.k?'on':''} onClick={()=>go(t.k)}>
+              <I n={t.i} s={20}/>{t.n}</button>)}
+      </nav>}
+
+      {tx&&<TxSheet st={st} set={set} tx={tx} onClose={()=>setTx(null)} toast={toast}/>}
+      {msg&&<div className="toast">{msg}</div>}
+
+      {box&&<>
+        <div className="scrim" style={{zIndex:70}} onClick={()=>setBox(null)}/>
+        <div className="confirm-box" role="alertdialog" aria-modal="true">
+          <p>{box.msg}</p>
+          <div style={{display:'flex',gap:8}}>
+            <button className="btn gho grow" onClick={()=>setBox(null)}>Cancel</button>
+            <button className="btn dan grow" autoFocus
+              onClick={()=>{const cb=box.onOk;setBox(null);cb()}}>{box.okLabel}</button>
+          </div>
+        </div>
+      </>}
+
+      {cfg&&<Sheet title="Settings" onClose={()=>setCfg(false)}>
+        <div className="card" style={{marginBottom:6}}>
+          <button className="row" onClick={()=>{setCfg(false);setPlanPage(true)}}>
+            <div className="dot n"><I n="list" s={17}/></div>
+            <div className="row-b">
+              <div className="row-t">Plan template</div>
+              <div className="row-s">{st.template.length} items · {money(st.template.reduce((a,b)=>a+b.amount,0))} ₫ per month</div>
+            </div>
+            <span className="trail"><I n="right" s={16}/></span>
+          </button>
+          <button className="row" onClick={()=>{setCfg(false);setLoanPage(true)}}>
+            <div className="dot n"><I n="lend" s={17}/></div>
+            <div className="row-b">
+              <div className="row-t">Money I lent</div>
+              <div className="row-s">
+                {(st.loans||[]).length} loan{(st.loans||[]).length===1?'':'s'}
+                {(st.loans||[]).length>0?' · '+money((st.loans||[]).reduce((a,g)=>a+loanStat(g).left,0))+' ₫ still owed':''}
+              </div>
+            </div>
+            <span className="trail"><I n="right" s={16}/></span>
+          </button>
+        </div>
+
+        <div className="sec-h"><h2>Data</h2></div>
+        <div className="card">
+          <div className="row"><div className="row-b"><div className="row-t">Transactions</div>
+            <div className="row-s">Total records</div></div><div className="amt">{st.txns.length}</div></div>
+          <div className="row"><div className="row-b"><div className="row-t">Categories</div>
+            <div className="row-s">Across {st.accounts.length} accounts</div></div><div className="amt">{st.jars.length}</div></div>
+          <div className="row"><div className="row-b"><div className="row-t">Installments</div>
+            <div className="row-s">Being tracked</div></div><div className="amt">{st.installments.length}</div></div>
+        </div>
+        <p className="mut" style={{fontSize:12.5}}>Your data stays on this device. Nothing is sent anywhere.</p>
+        <button className="btn gho blk" style={{marginBottom:9}} onClick={()=>{
+          const blob=new Blob([JSON.stringify(st,null,2)],{type:'application/json'});
+          const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+          a.download='ledger-'+dstr(new Date())+'.json';a.click();
+        }}>Download backup (.json)</button>
+        <button className="btn gho blk" style={{marginBottom:9}}
+          onClick={()=>ask('Load sample data? Everything you have now will be replaced.',()=>{
+            setSt(seed());setCfg(false);toast('Sample data loaded');
+          },'Load')}>Load sample data</button>
+        <button className="btn dan blk"
+          onClick={()=>ask('Erase all data and start fresh? This cannot be undone.',async()=>{
+            await wipe();setSt(emptyState());setCfg(false);setTab('jars');toast('All data erased');
+          },'Erase')}>Erase everything</button>
+      </Sheet>}
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>

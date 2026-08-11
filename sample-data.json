@@ -1,0 +1,1036 @@
+{
+  "v": 1,
+  "accounts": [
+    {
+      "id": "a1",
+      "name": "Vietcombank",
+      "kind": "bank",
+      "color": "#0F7A57",
+      "icon": "bank"
+    },
+    {
+      "id": "a2",
+      "name": "Techcombank",
+      "kind": "bank",
+      "color": "#C33F4C",
+      "icon": "card"
+    },
+    {
+      "id": "a3",
+      "name": "Cash & Momo",
+      "kind": "cash",
+      "color": "#6B54C6",
+      "icon": "wallet"
+    }
+  ],
+  "jars": [
+    {
+      "id": "j1",
+      "accountId": "a1",
+      "name": "Living"
+    },
+    {
+      "id": "j2",
+      "accountId": "a1",
+      "name": "Bills & utilities"
+    },
+    {
+      "id": "j3",
+      "accountId": "a1",
+      "name": "Installments"
+    },
+    {
+      "id": "j4",
+      "accountId": "a2",
+      "name": "Long-term savings"
+    },
+    {
+      "id": "j5",
+      "accountId": "a2",
+      "name": "Emergency fund"
+    },
+    {
+      "id": "j6",
+      "accountId": "a3",
+      "name": "Food"
+    },
+    {
+      "id": "j7",
+      "accountId": "a3",
+      "name": "Misc"
+    }
+  ],
+  "openings": {
+    "2026-08": {
+      "j2": 6600000,
+      "j6": 4500000,
+      "j1": 800000,
+      "j7": 1500000,
+      "j3": 7170000,
+      "j4": 5000000,
+      "j5": 2000000
+    },
+    "2026-07": {
+      "j2": 6600000,
+      "j6": 4500000,
+      "j1": 800000,
+      "j7": 1500000,
+      "j3": 7170000,
+      "j4": 5000000,
+      "j5": 2000000
+    }
+  },
+  "tags": [
+    {
+      "id": "t1",
+      "name": "Food",
+      "color": "#2B3A8F"
+    },
+    {
+      "id": "t2",
+      "name": "Transport",
+      "color": "#C33F4C"
+    },
+    {
+      "id": "t3",
+      "name": "Bills",
+      "color": "#0F7A57"
+    },
+    {
+      "id": "t4",
+      "name": "Shopping",
+      "color": "#6B54C6"
+    },
+    {
+      "id": "t5",
+      "name": "Health",
+      "color": "#A96700"
+    },
+    {
+      "id": "t6",
+      "name": "Fun",
+      "color": "#0E7490"
+    },
+    {
+      "id": "t7",
+      "name": "Family",
+      "color": "#9A3412"
+    },
+    {
+      "id": "t8",
+      "name": "Other",
+      "color": "#4B5563"
+    }
+  ],
+  "txns": [
+    {
+      "id": "rotsywxz",
+      "date": "2026-08-01",
+      "type": "income",
+      "amount": 24000000,
+      "jarId": "j1",
+      "tagIds": [],
+      "note": "Monthly salary"
+    },
+    {
+      "id": "elzert9m",
+      "date": "2026-08-01",
+      "type": "expense",
+      "amount": 5000000,
+      "jarId": "j2",
+      "tagIds": [
+        "t3"
+      ],
+      "note": "Rent"
+    },
+    {
+      "id": "lacq8p9h",
+      "date": "2026-08-01",
+      "type": "expense",
+      "amount": 2670000,
+      "jarId": "j3",
+      "tagIds": [
+        "t8"
+      ],
+      "note": "iPhone installment #6"
+    },
+    {
+      "id": "lez91l4a",
+      "date": "2026-08-02",
+      "type": "expense",
+      "amount": 185000,
+      "jarId": "j6",
+      "tagIds": [
+        "t1"
+      ],
+      "note": "Groceries"
+    },
+    {
+      "id": "zzsha6kg",
+      "date": "2026-08-02",
+      "type": "expense",
+      "amount": 60000,
+      "jarId": "j1",
+      "tagIds": [
+        "t2"
+      ],
+      "note": "Grab to work"
+    },
+    {
+      "id": "aitrksce",
+      "date": "2026-08-03",
+      "type": "expense",
+      "amount": 420000,
+      "jarId": "j2",
+      "tagIds": [
+        "t3"
+      ],
+      "note": "Electricity bill"
+    },
+    {
+      "id": "ksikyhaz",
+      "date": "2026-08-03",
+      "type": "expense",
+      "amount": 95000,
+      "jarId": "j6",
+      "tagIds": [
+        "t1"
+      ],
+      "note": "Office lunch"
+    },
+    {
+      "id": "odclxsg8",
+      "date": "2026-08-04",
+      "type": "expense",
+      "amount": 1250000,
+      "jarId": "j7",
+      "tagIds": [
+        "t4"
+      ],
+      "note": "New shoes"
+    },
+    {
+      "id": "tfgdtmkq",
+      "date": "2026-08-04",
+      "type": "expense",
+      "amount": 72000,
+      "jarId": "j6",
+      "tagIds": [
+        "t1"
+      ],
+      "note": "Coffee & pastry"
+    },
+    {
+      "id": "pnl7sm6l",
+      "date": "2026-08-05",
+      "type": "expense",
+      "amount": 2500000,
+      "jarId": "j3",
+      "tagIds": [
+        "t8"
+      ],
+      "note": "Motorbike installment #10"
+    },
+    {
+      "id": "11n1alom",
+      "date": "2026-08-05",
+      "type": "expense",
+      "amount": 340000,
+      "jarId": "j1",
+      "tagIds": [
+        "t2"
+      ],
+      "note": "Fuel"
+    },
+    {
+      "id": "uwagclda",
+      "date": "2026-08-05",
+      "type": "income",
+      "amount": 1500000,
+      "jarId": "j7",
+      "tagIds": [],
+      "note": "Project bonus"
+    },
+    {
+      "id": "4cb91dia",
+      "date": "2026-08-06",
+      "type": "expense",
+      "amount": 680000,
+      "jarId": "j6",
+      "tagIds": [
+        "t1"
+      ],
+      "note": "Family dinner"
+    },
+    {
+      "id": "p0idsjxn",
+      "date": "2026-08-06",
+      "type": "expense",
+      "amount": 150000,
+      "jarId": "j7",
+      "tagIds": [
+        "t6"
+      ],
+      "note": "Movie tickets"
+    },
+    {
+      "id": "fp4xtskm",
+      "date": "2026-08-07",
+      "type": "expense",
+      "amount": 260000,
+      "jarId": "j6",
+      "tagIds": [
+        "t1"
+      ],
+      "note": "Groceries"
+    },
+    {
+      "id": "eug4k7ja",
+      "date": "2026-08-07",
+      "type": "expense",
+      "amount": 890000,
+      "jarId": "j1",
+      "tagIds": [
+        "t5"
+      ],
+      "note": "Health check-up"
+    },
+    {
+      "id": "sgdx4uos",
+      "date": "2026-08-03",
+      "type": "transfer",
+      "amount": 3000000,
+      "jarId": null,
+      "tagIds": [],
+      "note": "Cash withdrawal",
+      "fromJarId": "j1",
+      "toJarId": "j6"
+    },
+    {
+      "id": "yynyaqli",
+      "date": "2026-07-01",
+      "type": "income",
+      "amount": 24000000,
+      "jarId": "j1",
+      "tagIds": [],
+      "note": "Monthly salary"
+    },
+    {
+      "id": "f1e3mwrb",
+      "date": "2026-07-01",
+      "type": "expense",
+      "amount": 5000000,
+      "jarId": "j2",
+      "tagIds": [
+        "t3"
+      ],
+      "note": "Rent"
+    },
+    {
+      "id": "lz0m9h6p",
+      "date": "2026-07-02",
+      "type": "expense",
+      "amount": 2670000,
+      "jarId": "j3",
+      "tagIds": [
+        "t8"
+      ],
+      "note": "iPhone installment #5"
+    },
+    {
+      "id": "u6a5oa93",
+      "date": "2026-07-03",
+      "type": "expense",
+      "amount": 510000,
+      "jarId": "j2",
+      "tagIds": [
+        "t3"
+      ],
+      "note": "Utilities"
+    },
+    {
+      "id": "pvqbxep0",
+      "date": "2026-07-05",
+      "type": "expense",
+      "amount": 2500000,
+      "jarId": "j3",
+      "tagIds": [
+        "t8"
+      ],
+      "note": "Motorbike installment #9"
+    },
+    {
+      "id": "hsp8ccu8",
+      "date": "2026-07-07",
+      "type": "expense",
+      "amount": 1800000,
+      "jarId": "j7",
+      "tagIds": [
+        "t4"
+      ],
+      "note": "Household goods"
+    },
+    {
+      "id": "zmaeszme",
+      "date": "2026-07-09",
+      "type": "expense",
+      "amount": 640000,
+      "jarId": "j6",
+      "tagIds": [
+        "t1"
+      ],
+      "note": "Weekend dining"
+    },
+    {
+      "id": "uitvntui",
+      "date": "2026-07-12",
+      "type": "expense",
+      "amount": 420000,
+      "jarId": "j1",
+      "tagIds": [
+        "t2"
+      ],
+      "note": "Fuel"
+    },
+    {
+      "id": "7oz09u5u",
+      "date": "2026-07-14",
+      "type": "expense",
+      "amount": 2000000,
+      "jarId": "j3",
+      "tagIds": [
+        "t8"
+      ],
+      "note": "Washer installment #2"
+    },
+    {
+      "id": "6xzll8kk",
+      "date": "2026-07-16",
+      "type": "expense",
+      "amount": 1150000,
+      "jarId": "j6",
+      "tagIds": [
+        "t1"
+      ],
+      "note": "Groceries"
+    },
+    {
+      "id": "fgcopvx2",
+      "date": "2026-07-19",
+      "type": "expense",
+      "amount": 300000,
+      "jarId": "j7",
+      "tagIds": [
+        "t6"
+      ],
+      "note": "Concert"
+    },
+    {
+      "id": "us1zzbov",
+      "date": "2026-07-22",
+      "type": "expense",
+      "amount": 760000,
+      "jarId": "j1",
+      "tagIds": [
+        "t5"
+      ],
+      "note": "Medicine & clinic"
+    },
+    {
+      "id": "w74d6p5w",
+      "date": "2026-07-25",
+      "type": "expense",
+      "amount": 1400000,
+      "jarId": "j7",
+      "tagIds": [
+        "t7"
+      ],
+      "note": "Birthday gift"
+    },
+    {
+      "id": "e7rq51jw",
+      "date": "2026-07-28",
+      "type": "expense",
+      "amount": 980000,
+      "jarId": "j6",
+      "tagIds": [
+        "t1"
+      ],
+      "note": "Groceries"
+    },
+    {
+      "id": "rhti3kis",
+      "date": "2026-07-20",
+      "type": "expense",
+      "amount": 6000000,
+      "jarId": "j7",
+      "tagIds": [
+        "t7"
+      ],
+      "note": "Lent · Minh"
+    }
+  ],
+  "template": [
+    {
+      "id": "p1",
+      "group": "basic",
+      "name": "Rent",
+      "amount": 5000000,
+      "jarId": "j2"
+    },
+    {
+      "id": "p2",
+      "group": "basic",
+      "name": "Electricity & water",
+      "amount": 1200000,
+      "jarId": "j2"
+    },
+    {
+      "id": "p3",
+      "group": "basic",
+      "name": "Internet & phone",
+      "amount": 400000,
+      "jarId": "j2"
+    },
+    {
+      "id": "p4",
+      "group": "basic",
+      "name": "Monthly food",
+      "amount": 4500000,
+      "jarId": "j6"
+    },
+    {
+      "id": "p5",
+      "group": "basic",
+      "name": "Fuel & transport",
+      "amount": 800000,
+      "jarId": "j1"
+    },
+    {
+      "id": "p6",
+      "group": "basic",
+      "name": "Miscellaneous",
+      "amount": 1500000,
+      "jarId": "j7"
+    },
+    {
+      "id": "p7",
+      "group": "debt",
+      "name": "iPhone instalment",
+      "amount": 2670000,
+      "jarId": "j3"
+    },
+    {
+      "id": "p8",
+      "group": "debt",
+      "name": "Motorbike instalment",
+      "amount": 2500000,
+      "jarId": "j3"
+    },
+    {
+      "id": "p9",
+      "group": "debt",
+      "name": "Washer instalment",
+      "amount": 2000000,
+      "jarId": "j3"
+    },
+    {
+      "id": "p10",
+      "group": "save",
+      "name": "Long-term savings",
+      "amount": 5000000,
+      "jarId": "j4"
+    },
+    {
+      "id": "p11",
+      "group": "save",
+      "name": "Emergency fund",
+      "amount": 2000000,
+      "jarId": "j5"
+    }
+  ],
+  "plans": {
+    "2026-08": {
+      "items": [
+        {
+          "id": "p1",
+          "group": "basic",
+          "name": "Rent",
+          "amount": 5000000,
+          "jarId": "j2",
+          "checked": true,
+          "applied": true
+        },
+        {
+          "id": "p2",
+          "group": "basic",
+          "name": "Electricity & water",
+          "amount": 1200000,
+          "jarId": "j2",
+          "checked": true,
+          "applied": true
+        },
+        {
+          "id": "p3",
+          "group": "basic",
+          "name": "Internet & phone",
+          "amount": 400000,
+          "jarId": "j2",
+          "checked": true,
+          "applied": true
+        },
+        {
+          "id": "p4",
+          "group": "basic",
+          "name": "Monthly food",
+          "amount": 4500000,
+          "jarId": "j6",
+          "checked": true,
+          "applied": true
+        },
+        {
+          "id": "p5",
+          "group": "basic",
+          "name": "Fuel & transport",
+          "amount": 800000,
+          "jarId": "j1",
+          "checked": true,
+          "applied": true
+        },
+        {
+          "id": "p6",
+          "group": "basic",
+          "name": "Miscellaneous",
+          "amount": 1500000,
+          "jarId": "j7",
+          "checked": true,
+          "applied": true
+        },
+        {
+          "id": "p7",
+          "group": "debt",
+          "name": "iPhone instalment",
+          "amount": 2670000,
+          "jarId": "j3",
+          "checked": true,
+          "applied": true
+        },
+        {
+          "id": "p8",
+          "group": "debt",
+          "name": "Motorbike instalment",
+          "amount": 2500000,
+          "jarId": "j3",
+          "checked": true,
+          "applied": true
+        },
+        {
+          "id": "p9",
+          "group": "debt",
+          "name": "Washer instalment",
+          "amount": 2000000,
+          "jarId": "j3",
+          "checked": true,
+          "applied": true
+        },
+        {
+          "id": "p10",
+          "group": "save",
+          "name": "Long-term savings",
+          "amount": 5000000,
+          "jarId": "j4",
+          "checked": true,
+          "applied": true
+        },
+        {
+          "id": "p11",
+          "group": "save",
+          "name": "Emergency fund",
+          "amount": 2000000,
+          "jarId": "j5",
+          "checked": true,
+          "applied": true
+        }
+      ],
+      "appliedAt": "2026-08-01"
+    }
+  },
+  "installments": [
+    {
+      "id": "i1",
+      "name": "iPhone 16 Pro",
+      "note": "VCB credit card, 0%",
+      "total": 32040000,
+      "periods": 12,
+      "per": 2670000,
+      "start": "2026-03-15",
+      "jarId": "j3",
+      "payments": [
+        {
+          "i": 1,
+          "due": "2026-03-15",
+          "amount": 2670000,
+          "paid": true,
+          "paidAt": "2026-03-15"
+        },
+        {
+          "i": 2,
+          "due": "2026-04-15",
+          "amount": 2670000,
+          "paid": true,
+          "paidAt": "2026-04-15"
+        },
+        {
+          "i": 3,
+          "due": "2026-05-15",
+          "amount": 2670000,
+          "paid": true,
+          "paidAt": "2026-05-15"
+        },
+        {
+          "i": 4,
+          "due": "2026-06-15",
+          "amount": 2670000,
+          "paid": true,
+          "paidAt": "2026-06-15"
+        },
+        {
+          "i": 5,
+          "due": "2026-07-15",
+          "amount": 2670000,
+          "paid": true,
+          "paidAt": "2026-07-15"
+        },
+        {
+          "i": 6,
+          "due": "2026-08-15",
+          "amount": 2670000,
+          "paid": true,
+          "paidAt": "2026-08-15"
+        },
+        {
+          "i": 7,
+          "due": "2026-09-15",
+          "amount": 2670000,
+          "paid": false,
+          "paidAt": null
+        },
+        {
+          "i": 8,
+          "due": "2026-10-15",
+          "amount": 2670000,
+          "paid": false,
+          "paidAt": null
+        },
+        {
+          "i": 9,
+          "due": "2026-11-15",
+          "amount": 2670000,
+          "paid": false,
+          "paidAt": null
+        },
+        {
+          "i": 10,
+          "due": "2026-12-15",
+          "amount": 2670000,
+          "paid": false,
+          "paidAt": null
+        },
+        {
+          "i": 11,
+          "due": "2027-01-15",
+          "amount": 2670000,
+          "paid": false,
+          "paidAt": null
+        },
+        {
+          "i": 12,
+          "due": "2027-02-15",
+          "amount": 2670000,
+          "paid": false,
+          "paidAt": null
+        }
+      ]
+    },
+    {
+      "id": "i2",
+      "name": "Honda SH Mode",
+      "note": "Bank loan, 24 months",
+      "total": 60000000,
+      "periods": 24,
+      "per": 2500000,
+      "start": "2025-11-10",
+      "jarId": "j3",
+      "payments": [
+        {
+          "i": 1,
+          "due": "2025-11-10",
+          "amount": 2500000,
+          "paid": true,
+          "paidAt": "2025-11-10"
+        },
+        {
+          "i": 2,
+          "due": "2025-12-10",
+          "amount": 2500000,
+          "paid": true,
+          "paidAt": "2025-12-10"
+        },
+        {
+          "i": 3,
+          "due": "2026-01-10",
+          "amount": 2500000,
+          "paid": true,
+          "paidAt": "2026-01-10"
+        },
+        {
+          "i": 4,
+          "due": "2026-02-10",
+          "amount": 2500000,
+          "paid": true,
+          "paidAt": "2026-02-10"
+        },
+        {
+          "i": 5,
+          "due": "2026-03-10",
+          "amount": 2500000,
+          "paid": true,
+          "paidAt": "2026-03-10"
+        },
+        {
+          "i": 6,
+          "due": "2026-04-10",
+          "amount": 2500000,
+          "paid": true,
+          "paidAt": "2026-04-10"
+        },
+        {
+          "i": 7,
+          "due": "2026-05-10",
+          "amount": 2500000,
+          "paid": true,
+          "paidAt": "2026-05-10"
+        },
+        {
+          "i": 8,
+          "due": "2026-06-10",
+          "amount": 2500000,
+          "paid": true,
+          "paidAt": "2026-06-10"
+        },
+        {
+          "i": 9,
+          "due": "2026-07-10",
+          "amount": 2500000,
+          "paid": true,
+          "paidAt": "2026-07-10"
+        },
+        {
+          "i": 10,
+          "due": "2026-08-10",
+          "amount": 2500000,
+          "paid": true,
+          "paidAt": "2026-08-10"
+        },
+        {
+          "i": 11,
+          "due": "2026-09-10",
+          "amount": 2500000,
+          "paid": false,
+          "paidAt": null
+        },
+        {
+          "i": 12,
+          "due": "2026-10-10",
+          "amount": 2500000,
+          "paid": false,
+          "paidAt": null
+        },
+        {
+          "i": 13,
+          "due": "2026-11-10",
+          "amount": 2500000,
+          "paid": false,
+          "paidAt": null
+        },
+        {
+          "i": 14,
+          "due": "2026-12-10",
+          "amount": 2500000,
+          "paid": false,
+          "paidAt": null
+        },
+        {
+          "i": 15,
+          "due": "2027-01-10",
+          "amount": 2500000,
+          "paid": false,
+          "paidAt": null
+        },
+        {
+          "i": 16,
+          "due": "2027-02-10",
+          "amount": 2500000,
+          "paid": false,
+          "paidAt": null
+        },
+        {
+          "i": 17,
+          "due": "2027-03-10",
+          "amount": 2500000,
+          "paid": false,
+          "paidAt": null
+        },
+        {
+          "i": 18,
+          "due": "2027-04-10",
+          "amount": 2500000,
+          "paid": false,
+          "paidAt": null
+        },
+        {
+          "i": 19,
+          "due": "2027-05-10",
+          "amount": 2500000,
+          "paid": false,
+          "paidAt": null
+        },
+        {
+          "i": 20,
+          "due": "2027-06-10",
+          "amount": 2500000,
+          "paid": false,
+          "paidAt": null
+        },
+        {
+          "i": 21,
+          "due": "2027-07-10",
+          "amount": 2500000,
+          "paid": false,
+          "paidAt": null
+        },
+        {
+          "i": 22,
+          "due": "2027-08-10",
+          "amount": 2500000,
+          "paid": false,
+          "paidAt": null
+        },
+        {
+          "i": 23,
+          "due": "2027-09-10",
+          "amount": 2500000,
+          "paid": false,
+          "paidAt": null
+        },
+        {
+          "i": 24,
+          "due": "2027-10-10",
+          "amount": 2500000,
+          "paid": false,
+          "paidAt": null
+        }
+      ]
+    },
+    {
+      "id": "i3",
+      "name": "LG washing machine",
+      "note": "Store financing, 6 periods",
+      "total": 12000000,
+      "periods": 6,
+      "per": 2000000,
+      "start": "2026-06-01",
+      "jarId": "j3",
+      "payments": [
+        {
+          "i": 1,
+          "due": "2026-06-01",
+          "amount": 2000000,
+          "paid": true,
+          "paidAt": "2026-06-01"
+        },
+        {
+          "i": 2,
+          "due": "2026-07-01",
+          "amount": 2000000,
+          "paid": true,
+          "paidAt": "2026-07-01"
+        },
+        {
+          "i": 3,
+          "due": "2026-08-01",
+          "amount": 2000000,
+          "paid": true,
+          "paidAt": "2026-08-01"
+        },
+        {
+          "i": 4,
+          "due": "2026-09-01",
+          "amount": 2000000,
+          "paid": false,
+          "paidAt": null
+        },
+        {
+          "i": 5,
+          "due": "2026-10-01",
+          "amount": 2000000,
+          "paid": false,
+          "paidAt": null
+        },
+        {
+          "i": 6,
+          "due": "2026-11-01",
+          "amount": 2000000,
+          "paid": false,
+          "paidAt": null
+        }
+      ]
+    }
+  ],
+  "loans": [
+    {
+      "id": "L1",
+      "name": "Minh",
+      "note": "For his laptop",
+      "total": 6000000,
+      "date": "2026-07-20",
+      "jarId": "j7",
+      "tagIds": [
+        "t7"
+      ],
+      "txnId": "rhti3kis",
+      "periods": 3,
+      "payments": [
+        {
+          "i": 1,
+          "due": "2026-07-20",
+          "amount": 2000000,
+          "paid": false,
+          "paidAt": null,
+          "jarId": null,
+          "txnId": null
+        },
+        {
+          "i": 2,
+          "due": "2026-08-20",
+          "amount": 2000000,
+          "paid": false,
+          "paidAt": null,
+          "jarId": null,
+          "txnId": null
+        },
+        {
+          "i": 3,
+          "due": "2026-09-20",
+          "amount": 2000000,
+          "paid": false,
+          "paidAt": null,
+          "jarId": null,
+          "txnId": null
+        }
+      ]
+    }
+  ],
+  "closes": {},
+  "hiddenJars": []
+}
