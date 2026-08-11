@@ -39,7 +39,14 @@ export default function App(){
   const [loanPage,setLoanPage]=useState(false);
   const tt=useRef(null);
 
-  useEffect(()=>{(async()=>{const s=await loadState();setSt(migrate(s||seed()))})()},[]);
+  /* cancelled-guard để effect an toàn với StrictMode (gọi 2 lần trong dev).
+     Không có nó, lần chạy thứ nhất và thứ hai đều seed() với uid random khác
+     nhau rồi đua nhau ghi vào storage. */
+  useEffect(()=>{
+    let cancelled=false;
+    (async()=>{const s=await loadState();if(!cancelled)setSt(migrate(s||seed()))})();
+    return()=>{cancelled=true};
+  },[]);
   useEffect(()=>{if(st)saveState(st)},[st]);
   useEffect(()=>{setAsk((msg,onOk,okLabel)=>setBox({msg,onOk,okLabel:okLabel||'Delete'}));
     return()=>{setAsk(null)}},[]);

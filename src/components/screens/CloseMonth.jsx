@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { CUSTOM_C, GROUPS } from '../../lib/constants';
-import { monthSummary } from '../../lib/derive';
+import { computeOpenings, monthSummary } from '../../lib/derive';
 import { dstr, mLabelLong, money, pad, shiftYm, uid } from '../../lib/format';
 import { I } from '../Icon';
 import { Field, JarSelect, MoneyInput, Sheet } from '../ui';
@@ -80,10 +80,7 @@ export function CloseMonth({st,set,ym,setYm,toast,onDone}){
     : (remainder!==0 && !restJar) ? 'Choose where the remainder goes' : null;
 
   const commit=()=>{
-    const o={};
-    st.jars.forEach(j=>{o[j.id]=carry[j.id]?s.js[j.id].left:0});
-    items.filter(i=>i.checked&&i.jarId).forEach(i=>{o[i.jarId]=(o[i.jarId]||0)+i.amount});
-    if(restJar&&remainder!==0)o[restJar]=(o[restJar]||0)+remainder;
+    const o=computeOpenings({jars:st.jars,carry,stats:s.js,items,restJar,remainder});
     set(d=>{
       d.openings[next]=o;
       d.plans[next]={items:items.filter(i=>i.checked),appliedAt:dstr(new Date()),

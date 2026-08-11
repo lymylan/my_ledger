@@ -31,6 +31,22 @@ export const jarName=(st,id)=>{const j=st.jars.find(x=>x.id===id);if(!j)return '
 export const jarShort=(st,id)=>{const j=st.jars.find(x=>x.id===id);return j?j.name:'—'};
 export const tagOf=(st,id)=>st.tags.find(t=>t.id===id);
 
+/* Số dư mở đầu tháng mới, trích nguyên văn từ CloseMonth.commit().
+   Đây là nơi bug lệch 38.5tr từng sống (số dư kết chuyển bị đếm 2 lần trong
+   pool phân bổ). Tách ra thành hàm pure để test được bất biến:
+
+     Σ computeOpenings(...) == carryTotal + income
+
+   Bất biến CHỈ đúng khi mọi dòng đang tick đều đã có jarId — đó chính là lý do
+   CloseMonth chặn cứng `unassigned > 0` trước khi cho chốt. Xem derive.test.js. */
+export function computeOpenings({jars,carry,stats,items,restJar,remainder}){
+  const o={};
+  jars.forEach(j=>{o[j.id]=carry[j.id]?stats[j.id].left:0});
+  items.filter(i=>i.checked&&i.jarId).forEach(i=>{o[i.jarId]=(o[i.jarId]||0)+i.amount});
+  if(restJar&&remainder!==0)o[restJar]=(o[restJar]||0)+remainder;
+  return o;
+}
+
 export function loanStat(g){
   const paid=g.payments.filter(p=>p.paid);
   const got=paid.reduce((a,b)=>a+b.amount,0);
