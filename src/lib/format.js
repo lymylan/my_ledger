@@ -1,0 +1,18 @@
+export const uid=()=>Math.random().toString(36).slice(2,10);
+export const pad=n=>String(n).padStart(2,'0');
+export const ymOf=d=>`${d.getFullYear()}-${pad(d.getMonth()+1)}`;
+export const dstr=d=>`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+export const parseD=s=>{const p=s.split('-').map(Number);return new Date(p[0],p[1]-1,p[2])};
+export const money=n=>Math.round(n||0).toLocaleString('vi-VN');
+export const shortM=n=>{const a=Math.abs(n||0);
+  if(a>=1e9)return (a/1e9).toFixed(1)+'B';
+  if(a>=1e6)return (a/1e6).toFixed(a>=1e7?0:1)+'M';
+  if(a>=1e3)return Math.round(a/1e3)+'K'; return String(Math.round(a));};
+export const MONTHS=['January','February','March','April','May','June','July','August','September','October','November','December'];
+export const MON=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+export const mLabel=ym=>{const p=ym.split('-');return MON[Number(p[1])-1]+' '+p[0]};
+export const mLabelLong=ym=>{const p=ym.split('-');return MONTHS[Number(p[1])-1]+' '+p[0]};
+export const shiftYm=(ym,k)=>{const p=ym.split('-').map(Number);return ymOf(new Date(p[0],p[1]-1+k,1))};
+export const dim=ym=>{const p=ym.split('-').map(Number);return new Date(p[0],p[1],0).getDate()};
+export const ymOfDate=s=>s.slice(0,7);
+export const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
