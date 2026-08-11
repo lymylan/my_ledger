@@ -1,24 +1,42 @@
 # Ledger — App quản lý chi tiêu cá nhân
 
-Web app một file, mobile-first, dùng phương pháp **zero-based envelope budgeting**
+Web app mobile-first, dùng phương pháp **zero-based envelope budgeting**
 (chia tiền vào "lọ"/category trước khi tiêu, giống YNAB).
 
 - **Ngôn ngữ UI:** English
 - **Tiền tệ:** VND, định dạng `vi-VN` (dấu chấm phân cách nghìn)
-- **Stack:** 1 file HTML · React 18 · Babel standalone · CSS thuần
-- **Backend:** không có. Toàn bộ dữ liệu nằm trên máy người dùng.
+- **Stack:** Next.js 16 (App Router) · React 19 · CSS thuần · Vitest
+- **Backend:** chưa có. Toàn bộ dữ liệu nằm trên máy người dùng (`localStorage`).
+  Firebase Auth + Firestore là bước kế tiếp — xem §10.
 
 ---
 
 ## 1. Chạy thử
 
-Mở `quan-ly-chi-tieu.html` bằng trình duyệt. Không cần build, không cần cài gì.
+```bash
+npm install
+npm run dev
+```
 
-> ⚠️ **Hiện tại CẦN Internet** để tải React / Babel / Google Fonts từ CDN.
-> Mất mạng là màn hình trắng. Xem mục *Việc còn thiếu* để biết cách khắc phục.
+Mở http://localhost:3000.
+
+| Lệnh | Việc |
+|---|---|
+| `npm run dev` | Dev server (Turbopack) |
+| `npm run build` | Production build |
+| `npm test` | 25 test cho các hàm số học thuần |
+| `npm run lint` | ESLint, gồm rule chặn component lồng nhau |
+
+React và font đều được bundle/self-host lúc build, nên **không cần Internet** để
+chạy. Trước đây phụ thuộc CDN cho React + Babel standalone + Google Fonts, mất
+mạng là màn hình trắng.
 
 Lần đầu mở sẽ có dữ liệu mẫu (3 tài khoản, 7 category, ~31 giao dịch, 3 khoản
-trả góp, 1 khoản cho vay). Vào **⚙ → Data** để xoá sạch và bắt đầu thật.
+trả góp, 1 khoản cho vay). Vào **⚙ → Data** để xoá sạch và bắt đầu thật, hoặc
+**Restore from backup (.json)** để nạp lại file đã export trước đó.
+
+Bản một-file gốc vẫn giữ ở `legacy/quan-ly-chi-tieu.html` để đối chiếu hành vi.
+Nó cần Internet để chạy (CDN) và sẽ xoá khi Firebase xong.
 
 ---
 
@@ -84,7 +102,43 @@ Hoàn tác kỳ → xoá giao dịch thu đó. Xoá khoản vay → xoá tất c
 
 ## 4. Kiến trúc
 
-Một file, ba khối: `<style>` (287 dòng CSS) · `<script type="text/babel">` (1927 dòng JSX) · không có build step.
+2010 dòng JSX/JS chia 17 module, 289 dòng CSS, 244 dòng test.
+
+```
+app/
+├─ layout.tsx          html/body · next/font self-host 2 font
+├─ page.tsx            'use client' — RANH GIỚI CLIENT DUY NHẤT của toàn app
+└─ globals.css         289 dòng, copy nguyên khối từ bản một-file
+src/
+├─ App.jsx             209  shell, routing, level-2 chrome, confirm dialog, toast
+├─ lib/
+│  ├─ format.js         18  uid, pad, ymOf, money, shortM, mLabel…
+│  ├─ constants.js      12  TAG_COLORS, ACC_COLORS, GROUPS, DOW…
+│  ├─ ask.js             6  cầu nối confirm dialog (thay window.confirm)
+│  ├─ storage.js        15  loadState / saveState / wipe  ← điểm nối Firebase
+│  ├─ state.js         143  migrate, emptyState, seed, parseBackup
+│  └─ derive.js         65  jarStats, monthSummary, computeOpenings, loanStat…
+└─ components/
+   ├─ Icon.jsx          44  dictionary 24 SVG path
+   ├─ ui.jsx           152  Vessel · Sheet · MoneyInput · TagPicker · Field
+   │                        JarSelect · TxRow
+   ├─ TxSheet.jsx       74  bottom sheet ghi/sửa giao dịch
+   └─ screens/
+      ├─ CloseMonth.jsx    271  (gồm AllocLine)
+      ├─ JarsScreen.jsx    260  (gồm CatPage)
+      ├─ LoansPage.jsx     224
+      ├─ ReportScreen.jsx  183
+      ├─ Installments.jsx  137
+      ├─ PlanSetup.jsx     122
+      └─ CalendarScreen.jsx 75
+legacy/                  bản một-file gốc + sample-data.json
+```
+
+**Toàn app chỉ có MỘT `'use client'`**, ở `app/page.tsx`. Trong App Router đó là
+*ranh giới* — mọi thứ import xuống dưới tự vào client bundle, không cần thêm
+directive ở từng file. `app/api/` để trống, dành cho tính năng cần server sau này.
+
+`lib/` không import gì từ `components/`, nên dùng lại được ở phía server khi cần.
 
 ### Components (18)
 
@@ -108,6 +162,10 @@ App                     shell, routing, level-2 chrome, confirm dialog, toast
 > cả cây con mỗi lần render → **input mất focus sau mỗi ký tự**. Bug này đã xảy ra
 > một lần (`AllocLine` từng nằm trong `CloseMonth`) và rất khó phát hiện: không có
 > lỗi console, không có warning.
+>
+> Giờ đã có rule `react/no-unstable-nested-components: error` chặn ở `npm run lint`,
+> không còn phải nhớ nữa. `AllocLine` và `CatPage` nằm cùng file với component cha
+> cho dễ đọc, nhưng vẫn ở module scope.
 
 ### Điều hướng
 
@@ -123,6 +181,14 @@ localStorage    →  mọi nơi khác
 ```
 
 Key: `lo.expense.v1`. Hàm `migrate()` chạy lúc load để nâng cấp dữ liệu cũ.
+
+**Cả app chỉ chạm storage qua 3 hàm trong `lib/storage.js`** (`loadState` /
+`saveState` / `wipe`). Không component nào gọi `localStorage` trực tiếp. Đây là lý
+do chuyển sang Firestore chỉ cần đổi ruột 1 file, không phải sửa component nào.
+
+⚠️ `useEffect(()=>{if(st)saveState(st)},[st])` trong `App.jsx` ghi **toàn bộ**
+state mỗi lần đổi. Với localStorage thì miễn phí; với Firestore sẽ cần debounce
+và một cờ `rev` để chặn thiết bị cũ ghi đè thiết bị mới.
 
 ---
 
@@ -159,6 +225,11 @@ jarStats(st, ym)[jarId] = {
   out:   Σ expense từ lọ  +  Σ transfer đi từ lọ,
   left:  open + in − out
 }
+```
+
+```js
+// lib/derive.js — số dư mở đầu tháng mới, do wizard chốt sổ gọi
+computeOpenings({jars, carry, stats, items, restJar, remainder})
 ```
 
 `plans[ym]` và `closes[ym]` là **bản ghi lịch sử** do wizard chốt sổ tạo ra.
@@ -208,13 +279,15 @@ Không áp vào progress bar.
 
 ## 7. Việc còn thiếu
 
+> Cả 3 việc ưu tiên cao cũ đã xong: **chạy offline** (bỏ CDN, bundle React +
+> self-host font), **import backup `.json`**, **version control** (git + branch).
+
 ### 🔴 Ưu tiên cao
 
 | Việc | Vì sao |
 |---|---|
-| **Chạy offline** | Đang phụ thuộc CDN cho React/Babel. Cần nhúng React + biên dịch sẵn JSX (bỏ Babel) → ~250KB, 0 request |
-| **Import backup `.json`** | Đã có export nhưng **chưa có import**. Không có cách chuyển dữ liệu giữa hai môi trường |
-| **Version control** | Chưa có git repo. Chưa có lịch sử phiên bản |
+| **Sync đa thiết bị (Firebase)** | Dùng trên cả điện thoại và máy tính, hiện mỗi máy một bản `localStorage` riêng, không có cách hợp nhất. Xem §10 |
+| **Cài lên home screen (PWA)** | Đã thử Serwist rồi gỡ: Serwist chạy qua webpack plugin, Next 16 mặc định Turbopack, chưa tương thích (serwist#54). Và precache manifest không chứa document `/` nên reload offline vẫn ra trang lỗi. Cần cách khác |
 
 ### 🟡 Ưu tiên trung bình
 
@@ -244,7 +317,9 @@ Không áp vào progress bar.
 |---|---|
 | Phân bổ **cộng thêm** lên số dư kế chuyển, hay **top up to target**? | Đang dùng "cộng thêm" (đúng mô tả gốc). "Top up" giữ mức chi ổn định hơn giữa các tháng |
 | Delta trong Report so với **1 tháng trước** hay **trung bình 3 tháng**? | Đang dùng 1 tháng trước. Dễ nhiễu nếu tháng đó bất thường |
-| Đưa Google Sheet làm nơi lưu trữ? | Đã phân tích: chỉ Apps Script Web App là khả thi, bảo mật 🟡 (URL = mật khẩu). Cần kiến trúc local-first + sync nền |
+| ~~Đưa Google Sheet làm nơi lưu trữ?~~ | **Đã chốt: không.** Thay bằng Firebase. Google Sheet bị loại vì lộ credential trong HTML / phải để Sheet public. Firebase không có vấn đề đó — `apiKey` web là **public theo thiết kế**, bảo mật nằm ở Auth + Security Rules chạy phía server |
+| Firestore: 1 document hay tách subcollection? | Đang tính dùng **1 document**. State chỉ ~20KB, giới hạn 1MB/doc → đủ cho ~2.500–3.000 giao dịch (6–7 năm). Dùng 1 người, không dùng cùng lúc, nên last-write-wins chấp nhận được |
+| Local-first hay server-first? | Chưa chốt. Local-first với Firestore gần như miễn phí (1 dòng `persistentLocalCache`) và giữ được tính chất ghi-là-xong tức thì hiện tại. Đánh đổi: cần cờ `rev` chặn thiết bị cũ ghi đè |
 | Donut Report có nên tính cả tag của khoản **thu**? | Hiện chỉ tính khoản chi |
 | Định dạng số giữ `vi-VN` hay đổi `en-US`? | Đang `vi-VN` (38.498.000) dù UI tiếng Anh |
 
@@ -252,24 +327,69 @@ Không áp vào progress bar.
 
 ## 9. Cách xác minh khi sửa code
 
-Không có test suite. Nhưng có 3 phép kiểm nhanh đã dùng suốt quá trình phát triển:
+3 phép kiểm thủ công cũ (compile JSX bằng Babel · đếm ngoặc CSS · grep component
+lồng nhau) giờ đã thành lệnh:
 
 ```bash
-# 1. JSX có compile được không (bắt lỗi cú pháp trước khi mở browser)
-npm i @babel/core @babel/preset-react
-# tách <script type="text/babel"> ra file .jsx rồi:
-node -e "require('@babel/core').transformFileSync('app.jsx',
-  {presets:[[require('@babel/preset-react'),{runtime:'classic'}]]})"
-
-# 2. CSS có cân ngoặc không
-python3 -c "css=open('...').read(); print(css.count('{')==css.count('}'))"
-
-# 3. Không còn component lồng trong component
-grep -nE '^\s+const [A-Z]\w*\s*=\s*\(?\{' app.jsx
+npm test        # 25 test — gồm bất biến số học, trước đây phải kiểm bằng mắt
+npm run lint    # 0 error. Có rule chặn component lồng nhau
+npm run build   # bắt lỗi cú pháp + type
 ```
 
-**Kiểm tra số học bắt buộc** sau khi sửa logic chốt sổ:
+**Bất biến số học** — trước đây README gọi là "kiểm tra bắt buộc" và phải tự tính:
 
 ```
 Σ openings[tháng mới]  ==  Σ carried  +  income
 ```
+
+Giờ nằm trong `src/lib/derive.test.js`. Bất biến này **chỉ đúng khi mọi dòng phân
+bổ đang tick đều đã có category** — vì `allocated` đếm cả dòng thiếu category còn
+`computeOpenings` thì bỏ qua nó, nên tiền bốc hơi khỏi tổng. Đó chính là lý do
+`CloseMonth` chặn cứng `unassigned > 0`. Có một test ghi lại đúng cơ chế này;
+**đừng bỏ guard đó.**
+
+### Sau khi sửa UI
+
+Không có test render. So sánh trực tiếp với `legacy/quan-ly-chi-tieu.html` mở
+song song ở viewport 375px.
+
+Nếu có sửa `lib/ask.js`, **phải test tay từng hành động phá hoại dữ liệu**. `ask()`
+đang gánh **11 call site trên 7 file**, và làm sai thì chúng im lặng không hoạt
+động chứ không báo lỗi:
+
+- **8 nút xoá** — tag · giao dịch · dòng plan · trả góp · khoản cho vay ·
+  hoàn tác kỳ đã nhận · category · tài khoản
+- **3 hành động ghi đè toàn bộ** — Restore from backup · Load sample data ·
+  Erase everything
+
+### 5 warning lint đang chấp nhận
+
+Đều có sẵn từ bản một-file, không phải do chuyển sang Next.js sinh ra. Hạ xuống
+`warn` trong `eslint.config.mjs` để lint sạch mà vẫn nhìn thấy:
+
+| Chỗ | Vấn đề |
+|---|---|
+| `CalendarScreen.jsx:13` | `setState` trong effect để sync `sel` theo `ym` — nên tính bằng derived value |
+| `ReportScreen.jsx:43` | `let acc` cộng dồn trong `.map()` để tính offset cung donut — thực tế an toàn, đổi sang `reduce` là hết |
+| `ui.jsx:22`, `ReportScreen.jsx:29` | thiếu dependency trong `useEffect` / `useMemo` |
+
+---
+
+## 10. Bước kế tiếp — Firebase
+
+Kiến trúc đã chốt, chưa code:
+
+- **Firebase Auth** (Google Sign-In) — không để dữ liệu tài chính không có auth
+- **Firestore 1 document** tại `users/{uid}/ledger/state`, đổi ruột `lib/storage.js`,
+  **không sửa component nào**
+- **Security Rules**: `allow read, write: if request.auth.uid == uid`
+- **Debounce `saveState`** + cờ `rev` chặn thiết bị cũ ghi đè thiết bị mới
+
+Lý do chọn **Next.js chứ không phải Vite**: các tính năng dự kiến sau này cần
+server — gọi API có secret key (không thể để trong bundle client), cron nhắc đóng
+sổ cuối tháng, chia sẻ sổ read-only qua link. Route handler nằm cùng codebase,
+dùng chung type với client. Với Vite sẽ phải dựng Cloud Functions riêng, deploy
+riêng, và cần Blaze plan trả phí để gọi mạng ra ngoài.
+
+Firestore yếu về truy vấn tổng hợp. Nếu làm "trung bình trượt 3 tháng theo lọ"
+(§7) thì phải tính ở server rồi cache, không query trực tiếp được.
