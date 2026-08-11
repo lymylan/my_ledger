@@ -14,6 +14,21 @@ export function migrate(s){
 export function emptyState(){
   return {v:1,accounts:[],jars:[],openings:{},tags:[],txns:[],template:[],plans:{},installments:[],loans:[],closes:{},hiddenJars:[]};
 }
+
+/* Đọc file backup .json do nút "Download backup" xuất ra.
+   Ném Error với message đọc được nếu file không phải backup Ledger — thà báo
+   lỗi rõ còn hơn nạp rác vào rồi app vỡ ở màn khác.
+   Trộn lên emptyState() để backup từ bản cũ thiếu key vẫn dùng được, rồi
+   migrate() chuẩn hoá tiếp (ví dụ tagId đơn -> tagIds mảng). */
+export function parseBackup(text){
+  let raw;
+  try{ raw=JSON.parse(text) }
+  catch{ throw new Error('Not a valid JSON file') }
+  if(!raw||typeof raw!=='object'||Array.isArray(raw)) throw new Error('Not a Ledger backup');
+  const missing=['accounts','jars','txns'].filter(k=>!Array.isArray(raw[k]));
+  if(missing.length) throw new Error('Not a Ledger backup — missing: '+missing.join(', '));
+  return migrate({...emptyState(),...raw});
+}
 export function seed(){
   const now=new Date(), ym=ymOf(now), pm=shiftYm(ym,-1);
   const day=(k,d)=>{const p=k.split('-');return `${p[0]}-${p[1]}-${pad(d)}`};

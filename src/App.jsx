@@ -14,7 +14,7 @@ import { Sheet } from './components/ui';
 import { ask, setAsk } from './lib/ask';
 import { loanStat } from './lib/derive';
 import { dstr, mLabelLong, money, shiftYm, ymOf } from './lib/format';
-import { emptyState, migrate, seed } from './lib/state';
+import { emptyState, migrate, parseBackup, seed } from './lib/state';
 import { loadState, saveState, wipe } from './lib/storage';
 
 const TABS=[
@@ -38,6 +38,7 @@ export default function App(){
   const [planPage,setPlanPage]=useState(false);
   const [loanPage,setLoanPage]=useState(false);
   const tt=useRef(null);
+  const fileRef=useRef(null);
 
   /* cancelled-guard để effect an toàn với StrictMode (gọi 2 lần trong dev).
      Không có nó, lần chạy thứ nhất và thứ hai đều seed() với uid random khác
@@ -54,6 +55,19 @@ export default function App(){
   const set=fn=>setSt(prev=>{const d=JSON.parse(JSON.stringify(prev));fn(d);return d});
   const toast=t=>{setMsg(t);clearTimeout(tt.current);tt.current=setTimeout(()=>setMsg(null),2200)};
   const openTx=t=>setTx(t||{});
+
+  const restoreBackup=async e=>{
+    const f=e.target.files&&e.target.files[0];
+    e.target.value='';                       // reset để chọn lại cùng file vẫn kích hoạt onChange
+    if(!f)return;
+    let next;
+    try{ next=parseBackup(await f.text()) }
+    catch(err){ toast(err.message); return }
+    const n=next.txns.length;
+    ask('Restore '+n+' transaction'+(n===1?'':'s')+' from this file? Everything you have now will be replaced.',()=>{
+      setSt(next); setCfg(false); setTab('jars'); setCatId(null); toast('Backup restored');
+    },'Restore');
+  };
 
   if(!st)return <div className="empty" style={{paddingTop:120}}>Loading…</div>;
 
@@ -177,6 +191,10 @@ export default function App(){
           const a=document.createElement('a');a.href=URL.createObjectURL(blob);
           a.download='ledger-'+dstr(new Date())+'.json';a.click();
         }}>Download backup (.json)</button>
+        <input ref={fileRef} type="file" accept="application/json,.json"
+          style={{display:'none'}} onChange={restoreBackup}/>
+        <button className="btn gho blk" style={{marginBottom:9}}
+          onClick={()=>fileRef.current&&fileRef.current.click()}>Restore from backup (.json)</button>
         <button className="btn gho blk" style={{marginBottom:9}}
           onClick={()=>ask('Load sample data? Everything you have now will be replaced.',()=>{
             setSt(seed());setCfg(false);toast('Sample data loaded');
