@@ -1,0 +1,17 @@
+[debug] [2026-08-12T14:31:09.527Z] ----------------------------------------------------------------------
+[debug] [2026-08-12T14:31:09.529Z] Command:       /usr/local/bin/node /Users/mylan/.npm/_npx/ba4f1959e38407b5/node_modules/.bin/firebase login
+[debug] [2026-08-12T14:31:09.529Z] CLI Version:   15.26.0
+[debug] [2026-08-12T14:31:09.529Z] Platform:      darwin
+[debug] [2026-08-12T14:31:09.529Z] Node Version:  v24.12.0
+[debug] [2026-08-12T14:31:09.529Z] Detected Agent: unknown
+[debug] [2026-08-12T14:31:09.529Z] Time:          Wed Aug 12 2026 21:31:09 GMT+0700 (Indochina Time)
+[debug] [2026-08-12T14:31:09.529Z] ----------------------------------------------------------------------
+[debug] 
+[debug] [2026-08-12T14:31:09.536Z] >>> [apiv2][query] GET https://firebase-public.firebaseio.com/cli.json [none]
+[info] i  The Firebase CLI’s MCP server feature can optionally make use of Gemini in Firebase. Learn more about Gemini in Firebase and how it uses your data: https://firebase.google.com/docs/gemini-in-firebase#how-gemini-in-firebase-uses-your-data 
+[debug] [2026-08-12T14:31:09.790Z] *** [apiv2] error from fetch(https://firebase-public.firebaseio.com/cli.json, {"headers":{},"method":"GET"}): Error: read ECONNRESET
+[debug] [2026-08-12T14:31:09.790Z] *** [apiv2] retrying https://firebase-public.firebaseio.com/cli.json without keep-alive after a premature close error
+[debug] [2026-08-12T14:31:10.791Z] *** [apiv2] Attempting the request again. Attempt number 2
+[debug] [2026-08-12T14:31:10.792Z] >>> [apiv2][query] GET https://firebase-public.firebaseio.com/cli.json [none]
+[debug] [2026-08-12T14:31:11.364Z] <<< [apiv2][status] GET https://firebase-public.firebaseio.com/cli.json 200
+[debug] [2026-08-12T14:31:11.365Z] <<< [apiv2][body] GET https://firebase-public.firebaseio.com/cli.json {"cloudBuildErrorAfter":1594252800000,"cloudBuildWarnAfter":1590019200000,"defaultNode10After":1594252800000,"minVersion":"3.0.5","node8DeploysDisabledAfter":1613390400000,"node8RuntimeDisabledAfter":1615809600000,"node8WarnAfter":1600128000000}

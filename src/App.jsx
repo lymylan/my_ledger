@@ -40,12 +40,15 @@ export default function App(){
   const tt=useRef(null);
   const fileRef=useRef(null);
 
-  /* cancelled-guard để effect an toàn với StrictMode (gọi 2 lần trong dev).
-     Không có nó, lần chạy thứ nhất và thứ hai đều seed() với uid random khác
-     nhau rồi đua nhau ghi vào storage. */
+  /* Máy trống -> state RỖNG, không tự nạp dữ liệu mẫu nữa. Mọi screen đã có
+     empty state sẵn ("No accounts yet" + nút Add account), nên mở lần đầu là
+     bắt đầu ghi thật được luôn. seed() vẫn giữ, nằm sau nút Load sample data
+     trong ⚙ Settings.
+
+     cancelled-guard để effect an toàn với StrictMode (gọi 2 lần trong dev). */
   useEffect(()=>{
     let cancelled=false;
-    (async()=>{const s=await loadState();if(!cancelled)setSt(migrate(s||seed()))})();
+    (async()=>{const s=await loadState();if(!cancelled)setSt(migrate(s||emptyState()))})();
     return()=>{cancelled=true};
   },[]);
   useEffect(()=>{if(st)saveState(st)},[st]);
