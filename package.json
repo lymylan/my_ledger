@@ -9,7 +9,8 @@
     "start": "next start",
     "lint": "eslint .",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "rules:deploy": "firebase deploy --only firestore:rules"
   },
   "dependencies": {
     "firebase": "^12.17.1",

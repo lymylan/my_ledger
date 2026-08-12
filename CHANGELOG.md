@@ -91,6 +91,57 @@ gánh 11 call site (8 nút xoá + 3 hành động ghi đè toàn bộ dữ liệ
 Chạy hết wizard 3 bước trên dev server với lương 30.000.000: carried 38.498.000 →
 `Σ openings` = 68.498.000, **lệch 0**. Bản có bug đếm hai lần sẽ ra 106.996.000.
 
+## Giai đoạn 7 — Firebase Auth + Firestore
+
+Bỏ localStorage, chuyển sang Firestore để dùng được trên nhiều thiết bị.
+
+**Ba lựa chọn đều theo hướng đơn giản hơn** (chủ dự án quyết):
+
+| | Chọn | Bỏ |
+|---|---|---|
+| Đăng nhập | Email + mật khẩu | Google Sign-In · Anonymous |
+| Mô hình dữ liệu | Server-first | Local-first |
+| Dữ liệu localStorage cũ | Bỏ, bắt đầu trắng | Migrate lên |
+
+Server-first hiểu theo nghĩa: Firestore là nguồn sự thật, không cache offline,
+không cần cờ `rev`. React state vẫn cập nhật ngay trong bộ nhớ nên UI giữ cảm
+giác tức thì — **không** đổi `set()` thành async, vì làm thế phải sửa ~40 call
+site và thêm spinner khắp nơi.
+
+Đánh đổi đã biết trước và chấp nhận: **quên mật khẩu = mất quyền vào dữ liệu**,
+**mất mạng = không ghi được**. Lưới an toàn là Download backup (.json).
+
+### Ranh giới không tự động hoá được
+
+- `firebase login` — luồng OAuth trong browser, phải là chủ tài khoản
+- **Bật Email/Password provider** — chỉ làm được trong Console. CLI có `firebase
+  auth` nhưng chỉ gồm export/import, không bật provider
+- **Tạo tài khoản người dùng đầu tiên** — không nhập mật khẩu thay chủ dự án
+
+Phần còn lại (tạo web app, tạo Firestore, viết + deploy rules, toàn bộ code) làm
+được bằng `firebase-tools` qua npx.
+
+### Ba chỗ dễ mất dữ liệu
+
+| Cơ chế | Nếu bỏ đi |
+|---|---|
+| Load lỗi → để `st = null`, KHÔNG rơi về `emptyState()` | Effect `saveState` ghi sổ trống đó lên và **xoá sạch dữ liệu thật** |
+| `flushSave()` ở `pagehide` và trước `signOut` | Thao tác cuối trong debounce 700ms mất im lặng |
+| `setSaveErrorHandler()` → toast | Mất mạng trông như đã lưu xong |
+
+### Xác minh
+
+Rules kiểm bằng Firestore REST API với token thật: đọc doc của mình 200 · đọc doc
+người khác 403 · ghi doc người khác 403 · đọc không token 403.
+
+Firestore là nguồn sự thật — chứng minh bằng cách để `localStorage` còn dữ liệu
+mẫu cũ (có Techcombank) trong khi app chỉ hiện tài khoản mới tạo: app không đọc
+localStorage nữa.
+
+Debounce kiểm bằng `updateTime` phía server: sau 250ms chưa ghi, sau ~1650ms mới
+ghi. (Phép đo đầu bằng cách đếm `fetch` là **sai** — burst trải dài hơn cửa sổ
+700ms, và Firestore SDK dùng WebChannel nên số fetch không map 1:1 với write.)
+
 ## Những hướng đã cân nhắc và loại bỏ
 
 | Ý tưởng | Lý do loại |

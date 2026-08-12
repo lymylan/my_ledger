@@ -6,8 +6,8 @@ Web app mobile-first, dùng phương pháp **zero-based envelope budgeting**
 - **Ngôn ngữ UI:** English
 - **Tiền tệ:** VND, định dạng `vi-VN` (dấu chấm phân cách nghìn)
 - **Stack:** Next.js 16 (App Router) · React 19 · CSS thuần · Vitest
-- **Backend:** chưa có. Toàn bộ dữ liệu nằm trên máy người dùng (`localStorage`).
-  Firebase Auth + Firestore là bước kế tiếp — xem §10.
+- **Backend:** Firebase Auth (email/mật khẩu) + Firestore. Sổ nằm trong **một
+  document** `users/{uid}/ledger/state`, chỉ chính chủ đọc/ghi được. Xem §10.
 
 ---
 
@@ -31,12 +31,18 @@ React và font đều được bundle/self-host lúc build, nên **không cần 
 chạy. Trước đây phụ thuộc CDN cho React + Babel standalone + Google Fonts, mất
 mạng là màn hình trắng.
 
-Lần đầu mở sẽ có dữ liệu mẫu (3 tài khoản, 7 category, ~31 giao dịch, 3 khoản
-trả góp, 1 khoản cho vay). Vào **⚙ → Data** để xoá sạch và bắt đầu thật, hoặc
-**Restore from backup (.json)** để nạp lại file đã export trước đó.
+Cần `.env.local` mới chạy được — xem §10.
 
-Bản một-file gốc vẫn giữ ở `legacy/quan-ly-chi-tieu.html` để đối chiếu hành vi.
-Nó cần Internet để chạy (CDN) và sẽ xoá khi Firebase xong.
+Lần đầu mở sẽ ra **màn đăng nhập**. Tạo tài khoản bằng email + mật khẩu (≥ 6 ký
+tự), rồi được **sổ trống** — không có dữ liệu mẫu. Mọi screen đã có empty state
+nên ghi thật được luôn: *+ Add account* → *+ Add category* → tab **+** để ghi
+giao dịch.
+
+Muốn xem app với dữ liệu đầy: **⚙ → Load sample data**. Muốn nạp lại file đã
+export: **⚙ → Restore from backup (.json)**.
+
+Bản một-file gốc vẫn giữ ở `legacy/quan-ly-chi-tieu.html` để đối chiếu pixel khi
+sửa UI. Nó cần Internet để chạy (CDN) và không còn dùng chung dữ liệu với bản mới.
 
 ---
 
@@ -102,7 +108,7 @@ Hoàn tác kỳ → xoá giao dịch thu đó. Xoá khoản vay → xoá tất c
 
 ## 4. Kiến trúc
 
-2010 dòng JSX/JS chia 17 module, 289 dòng CSS, 244 dòng test.
+2289 dòng JSX/JS chia 19 module, 289 dòng CSS, 244 dòng test.
 
 ```
 app/
@@ -110,15 +116,17 @@ app/
 ├─ page.tsx            'use client' — RANH GIỚI CLIENT DUY NHẤT của toàn app
 └─ globals.css         289 dòng, copy nguyên khối từ bản một-file
 src/
-├─ App.jsx             209  shell, routing, level-2 chrome, confirm dialog, toast
+├─ App.jsx             281  shell, routing, auth gating, confirm dialog, toast
 ├─ lib/
 │  ├─ format.js         18  uid, pad, ymOf, money, shortM, mLabel…
 │  ├─ constants.js      12  TAG_COLORS, ACC_COLORS, GROUPS, DOW…
 │  ├─ ask.js             6  cầu nối confirm dialog (thay window.confirm)
-│  ├─ storage.js        15  loadState / saveState / wipe  ← điểm nối Firebase
+│  ├─ firebase.js       31  init app / auth / db từ biến môi trường
+│  ├─ storage.js        71  Firestore + debounce 700ms + flush + báo lỗi ghi
 │  ├─ state.js         143  migrate, emptyState, seed, parseBackup
 │  └─ derive.js         65  jarStats, monthSummary, computeOpenings, loanStat…
 └─ components/
+   ├─ AuthGate.jsx     120  đăng nhập / tạo tài khoản / reset mật khẩu
    ├─ Icon.jsx          44  dictionary 24 SVG path
    ├─ ui.jsx           152  Vessel · Sheet · MoneyInput · TagPicker · Field
    │                        JarSelect · TxRow
@@ -140,9 +148,10 @@ directive ở từng file. `app/api/` để trống, dành cho tính năng cần
 
 `lib/` không import gì từ `components/`, nên dùng lại được ở phía server khi cần.
 
-### Components (18)
+### Components (19)
 
 ```
+AuthGate                chưa đăng nhập thì App render cái này thay vì cả cây dưới
 App                     shell, routing, level-2 chrome, confirm dialog, toast
 ├─ JarsScreen           tab Categories
 │  └─ CatPage           level 2: chi tiết category
@@ -175,20 +184,33 @@ App                     shell, routing, level-2 chrome, confirm dialog, toast
 
 ### Lưu trữ
 
-```js
-window.storage  →  nếu chạy trong Claude artifact
-localStorage    →  mọi nơi khác
+```
+Firestore:  users/{uid}/ledger/state   →  { st: <toàn bộ state>, updatedAt }
 ```
 
-Key: `lo.expense.v1`. Hàm `migrate()` chạy lúc load để nâng cấp dữ liệu cũ.
+**Server-first**: Firestore là nguồn sự thật duy nhất. `localStorage` **không còn
+được dùng** — không có cache offline, nên cũng không cần cờ `rev` chống thiết bị
+cũ ghi đè. Đổi lại: mất mạng là không ghi được. Lưới an toàn là ⚙ → *Download
+backup (.json)*.
 
-**Cả app chỉ chạm storage qua 3 hàm trong `lib/storage.js`** (`loadState` /
-`saveState` / `wipe`). Không component nào gọi `localStorage` trực tiếp. Đây là lý
-do chuyển sang Firestore chỉ cần đổi ruột 1 file, không phải sửa component nào.
+Cả app chỉ chạm storage qua `lib/storage.js`. Không component nào gọi Firestore
+trực tiếp — đó là lý do việc chuyển từ localStorage sang Firestore không phải sửa
+component nào.
 
-⚠️ `useEffect(()=>{if(st)saveState(st)},[st])` trong `App.jsx` ghi **toàn bộ**
-state mỗi lần đổi. Với localStorage thì miễn phí; với Firestore sẽ cần debounce
-và một cờ `rev` để chặn thiết bị cũ ghi đè thiết bị mới.
+`migrate()` vẫn chạy lúc load để nâng cấp dữ liệu cũ (ví dụ `tagId` đơn → mảng
+`tagIds`).
+
+**Debounce 700ms.** `useEffect(()=>{if(st)saveState(st)},[st])` ghi **toàn bộ**
+state mỗi lần đổi. Với localStorage thì miễn phí, với Firestore mỗi lần là một
+write có tính tiền, nên `saveState()` gộp lại.
+
+Hai chỗ dễ mất dữ liệu, đã xử lý — **đừng gỡ**:
+
+| Cơ chế | Nếu bỏ đi |
+|---|---|
+| `flushSave()` ở `pagehide`/`visibilitychange` và trước `signOut` | Thao tác cuối còn trong debounce mất im lặng |
+| Load lỗi thì để `st = null`, **không** rơi về `emptyState()` | Effect `saveState` sẽ ghi sổ trống đó lên và **xoá sạch dữ liệu thật** |
+| `setSaveErrorHandler()` → toast | Mất mạng sẽ trông như đã lưu xong |
 
 ---
 
@@ -279,14 +301,15 @@ Không áp vào progress bar.
 
 ## 7. Việc còn thiếu
 
-> Cả 3 việc ưu tiên cao cũ đã xong: **chạy offline** (bỏ CDN, bundle React +
-> self-host font), **import backup `.json`**, **version control** (git + branch).
+> Đã xong: **chạy offline** (bỏ CDN, bundle React + self-host font), **import
+> backup `.json`**, **version control**, **sync đa thiết bị** (Firebase, §10).
 
 ### 🔴 Ưu tiên cao
 
 | Việc | Vì sao |
 |---|---|
-| **Sync đa thiết bị (Firebase)** | Dùng trên cả điện thoại và máy tính, hiện mỗi máy một bản `localStorage` riêng, không có cách hợp nhất. Xem §10 |
+| **Xác minh email** | Tài khoản tạo xong dùng được ngay, `emailVerified` vẫn `false`. Nghĩa là gõ sai email khi đăng ký thì không nhận được link reset mật khẩu → mất quyền vào dữ liệu |
+| **Chỉ báo trạng thái sync** | Hiện không có gì cho biết "đã lưu chưa". Lỗi ghi có toast, nhưng lúc bình thường thì im lặng |
 | **Cài lên home screen (PWA)** | Đã thử Serwist rồi gỡ: Serwist chạy qua webpack plugin, Next 16 mặc định Turbopack, chưa tương thích (serwist#54). Và precache manifest không chứa document `/` nên reload offline vẫn ra trang lỗi. Cần cách khác |
 
 ### 🟡 Ưu tiên trung bình
@@ -375,21 +398,59 @@ Nếu có sửa `lib/ask.js`, **phải test tay từng hành động phá hoại
 
 ---
 
-## 10. Bước kế tiếp — Firebase
+## 10. Firebase
 
-Kiến trúc đã chốt, chưa code:
+Đang chạy trên project **`my-ledger-29e43`**.
 
-- **Firebase Auth** (Google Sign-In) — không để dữ liệu tài chính không có auth
-- **Firestore 1 document** tại `users/{uid}/ledger/state`, đổi ruột `lib/storage.js`,
-  **không sửa component nào**
-- **Security Rules**: `allow read, write: if request.auth.uid == uid`
-- **Debounce `saveState`** + cờ `rev` chặn thiết bị cũ ghi đè thiết bị mới
+| Thành phần | Giá trị |
+|---|---|
+| Firestore | database `(default)`, region **`asia-southeast1`** (Singapore) — ⚠️ region là **vĩnh viễn**, không đổi được |
+| Auth | Email/Password. Bật bằng tay trong Console — `firebase auth` của CLI chỉ có export/import, **không bật provider được** |
+| Rules | `firestore.rules`, deploy bằng `npm run rules:deploy` |
+| Config | `.env.local` (gitignore). Xem `.env.example` |
 
-Lý do chọn **Next.js chứ không phải Vite**: các tính năng dự kiến sau này cần
-server — gọi API có secret key (không thể để trong bundle client), cron nhắc đóng
-sổ cuối tháng, chia sẻ sổ read-only qua link. Route handler nằm cùng codebase,
-dùng chung type với client. Với Vite sẽ phải dựng Cloud Functions riêng, deploy
-riêng, và cần Blaze plan trả phí để gọi mạng ra ngoài.
+### apiKey không phải secret
 
-Firestore yếu về truy vấn tổng hợp. Nếu làm "trung bình trượt 3 tháng theo lọ"
-(§7) thì phải tính ở server rồi cache, không query trực tiếp được.
+`NEXT_PUBLIC_FIREBASE_API_KEY` **công khai theo thiết kế** — nó là identifier để
+SDK biết gọi project nào, không phải mật khẩu. Bảo mật thật nằm ở Auth +
+`firestore.rules` chạy phía server.
+
+Đây chính là lý do Firebase khả thi trong khi Google Sheet bị loại (xem
+CHANGELOG): Sheet buộc phải lộ credential thật hoặc để file public.
+
+Dùng `.env` chỉ để mỗi môi trường trỏ được sang project khác nhau.
+
+### Rules
+
+```
+users/{uid}/**   →  allow read, write: if request.auth.uid == uid
+mọi path khác    →  chặn hết
+```
+
+Đã kiểm bằng Firestore REST API với token thật:
+
+| Thao tác | Kết quả |
+|---|---|
+| Đọc document của mình | 200 |
+| Đọc document người khác | 403 |
+| Ghi vào document người khác | 403 |
+| Đọc không có token | 403 |
+
+### Giới hạn cần biết
+
+- **1 document/người.** State ~20KB, giới hạn Firestore 1MB → đủ khoảng
+  **2.500–3.000 giao dịch (6–7 năm)**. Chạm ngưỡng thì mới cần tách `txns` thành
+  subcollection.
+- **Last-write-wins.** Dùng 1 người, không dùng cùng lúc nên chấp nhận được. Hai
+  thiết bị sửa đồng thời thì một bên bị ghi đè.
+- **Firestore yếu về truy vấn tổng hợp.** Nếu làm "trung bình trượt 3 tháng theo
+  lọ" (§7) thì phải tính ở server rồi cache.
+- **Mất mạng là không ghi được** (đánh đổi có chủ ý của server-first).
+
+### Đổi sang project khác
+
+```bash
+npx firebase-tools apps:sdkconfig WEB <appId> --project <projectId>
+```
+
+Điền vào `.env.local`, sửa `.firebaserc`, rồi `npm run rules:deploy`.
