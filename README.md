@@ -1,4 +1,4 @@
-# Ledger — App quản lý chi tiêu cá nhân
+# My Ledger — App quản lý chi tiêu cá nhân
 
 Web app mobile-first, dùng phương pháp **zero-based envelope budgeting**
 (chia tiền vào "lọ"/category trước khi tiêu, giống YNAB).
@@ -38,8 +38,9 @@ tự), rồi được **sổ trống** — không có dữ liệu mẫu. Mọi s
 nên ghi thật được luôn: *+ Add account* → *+ Add category* → tab **+** để ghi
 giao dịch.
 
-Muốn xem app với dữ liệu đầy: **⚙ → Load sample data**. Muốn nạp lại file đã
-export: **⚙ → Restore from backup (.json)**.
+⚙ Settings giờ chỉ còn 3 mục: **Plan template** · **Money I lent** · **Account**.
+Các nút *Download backup* / *Restore from backup* / *Load sample data* /
+*Erase everything* **đã bị bỏ khỏi UI** theo yêu cầu chủ dự án — xem §7.
 
 Bản một-file gốc vẫn giữ ở `legacy/quan-ly-chi-tieu.html` để đối chiếu pixel khi
 sửa UI. Nó cần Internet để chạy (CDN) và không còn dùng chung dữ liệu với bản mới.
@@ -108,7 +109,7 @@ Hoàn tác kỳ → xoá giao dịch thu đó. Xoá khoản vay → xoá tất c
 
 ## 4. Kiến trúc
 
-2289 dòng JSX/JS chia 19 module, 289 dòng CSS, 244 dòng test.
+2383 dòng JSX/JS chia 21 module, 289 dòng CSS, 244 dòng test.
 
 ```
 app/
@@ -121,15 +122,17 @@ src/
 │  ├─ format.js         18  uid, pad, ymOf, money, shortM, mLabel…
 │  ├─ constants.js      12  TAG_COLORS, ACC_COLORS, GROUPS, DOW…
 │  ├─ ask.js             6  cầu nối confirm dialog (thay window.confirm)
+│  ├─ authErrors.js     20  dịch error code Firebase sang câu người đọc được
 │  ├─ firebase.js       31  init app / auth / db từ biến môi trường
 │  ├─ storage.js        71  Firestore + debounce 700ms + flush + báo lỗi ghi
 │  ├─ state.js         143  migrate, emptyState, seed, parseBackup
 │  └─ derive.js         65  jarStats, monthSummary, computeOpenings, loanStat…
 └─ components/
-   ├─ AuthGate.jsx     120  đăng nhập / tạo tài khoản / reset mật khẩu
+   ├─ AuthGate.jsx     113  đăng nhập / tạo tài khoản / reset mật khẩu
+   ├─ AccountPage.jsx   99  level-2: đổi mật khẩu · sign out
    ├─ Icon.jsx          44  dictionary 24 SVG path
-   ├─ ui.jsx           152  Vessel · Sheet · MoneyInput · TagPicker · Field
-   │                        JarSelect · TxRow
+   ├─ ui.jsx           195  Brand · PasswordInput · Vessel · Sheet · MoneyInput
+   │                        TagPicker · Field · JarSelect · TxRow
    ├─ TxSheet.jsx       74  bottom sheet ghi/sửa giao dịch
    └─ screens/
       ├─ CloseMonth.jsx    271  (gồm AllocLine)
@@ -148,10 +151,11 @@ directive ở từng file. `app/api/` để trống, dành cho tính năng cần
 
 `lib/` không import gì từ `components/`, nên dùng lại được ở phía server khi cần.
 
-### Components (19)
+### Components (20)
 
 ```
 AuthGate                chưa đăng nhập thì App render cái này thay vì cả cây dưới
+├─ AccountPage          level 2: đổi mật khẩu, sign out
 App                     shell, routing, level-2 chrome, confirm dialog, toast
 ├─ JarsScreen           tab Categories
 │  └─ CatPage           level 2: chi tiết category
@@ -308,6 +312,7 @@ Không áp vào progress bar.
 
 | Việc | Vì sao |
 |---|---|
+| **Không còn cách export dữ liệu** | *Download backup (.json)* đã bị bỏ khỏi UI. Đó từng là lưới an toàn duy nhất cho tình huống mất quyền vào tài khoản. Hàm `parseBackup()` và test của nó vẫn còn trong `lib/state.js`, nên khôi phục lại chỉ là thêm 2 nút |
 | **Xác minh email** | Tài khoản tạo xong dùng được ngay, `emailVerified` vẫn `false`. Nghĩa là gõ sai email khi đăng ký thì không nhận được link reset mật khẩu → mất quyền vào dữ liệu |
 | **Chỉ báo trạng thái sync** | Hiện không có gì cho biết "đã lưu chưa". Lỗi ghi có toast, nhưng lúc bình thường thì im lặng |
 | **Cài lên home screen (PWA)** | Đã thử Serwist rồi gỡ: Serwist chạy qua webpack plugin, Next 16 mặc định Turbopack, chưa tương thích (serwist#54). Và precache manifest không chứa document `/` nên reload offline vẫn ra trang lỗi. Cần cách khác |
@@ -377,13 +382,15 @@ Không có test render. So sánh trực tiếp với `legacy/quan-ly-chi-tieu.ht
 song song ở viewport 375px.
 
 Nếu có sửa `lib/ask.js`, **phải test tay từng hành động phá hoại dữ liệu**. `ask()`
-đang gánh **11 call site trên 7 file**, và làm sai thì chúng im lặng không hoạt
+đang gánh **9 call site trên 7 file**, và làm sai thì chúng im lặng không hoạt
 động chứ không báo lỗi:
 
 - **8 nút xoá** — tag · giao dịch · dòng plan · trả góp · khoản cho vay ·
   hoàn tác kỳ đã nhận · category · tài khoản
-- **3 hành động ghi đè toàn bộ** — Restore from backup · Load sample data ·
-  Erase everything
+- **1 hành động còn lại** — Sign out (trong ⚙ → Account)
+
+Ba hành động ghi đè toàn bộ (*Restore from backup* · *Load sample data* ·
+*Erase everything*) đã bị bỏ khỏi UI, nên số call site giảm từ 11 xuống 9.
 
 ### 5 warning lint đang chấp nhận
 

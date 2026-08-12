@@ -5,6 +5,47 @@ import { jarShort, tagOf } from '../lib/derive';
 import { clamp, money, shortM, uid } from '../lib/format';
 import { I } from './Icon';
 
+/* Logo + tên app, DÙNG CHUNG cho màn đăng nhập và cả hai chỗ ở top bar/sidebar.
+   Trước đây ba chỗ tự dựng markup riêng nên dùng ba icon khác nhau (book, book,
+   jar). Gom vào đây để không lệch lại được. */
+export function Brand({ size = 26, gap = 8 }) {
+  return (
+    <span style={{ display: 'flex', alignItems: 'center', gap }}>
+      <span style={{
+        width: size, height: size, borderRadius: Math.round(size * 0.3),
+        background: 'var(--indigo)', color: '#fff', display: 'grid', placeItems: 'center',
+        flexShrink: 0,
+      }}>
+        <I n="wallet" s={Math.round(size * 0.58)} />
+      </span>
+      My Ledger
+    </span>
+  );
+}
+
+/* Ô mật khẩu có nút con mắt. Dùng ở màn đăng nhập và form đổi mật khẩu. */
+export function PasswordInput({ id, value, onChange, placeholder, autoComplete, autoFocus }) {
+  const [show, setShow] = useState(false);
+  return (
+    <div style={{ position: 'relative' }}>
+      <input id={id} className="inp" type={show ? 'text' : 'password'}
+        style={{ paddingRight: 42 }}
+        autoComplete={autoComplete} autoFocus={autoFocus}
+        placeholder={placeholder} value={value}
+        onChange={e => onChange(e.target.value)} />
+      <button type="button" onClick={() => setShow(s => !s)}
+        aria-label={show ? 'Hide password' : 'Show password'}
+        style={{
+          position: 'absolute', right: 4, top: '50%', transform: 'translateY(-50%)',
+          width: 34, height: 34, display: 'grid', placeItems: 'center',
+          color: show ? 'var(--indigo)' : 'var(--muted)', borderRadius: 8,
+        }}>
+        <I n={show ? 'eye-off' : 'eye'} s={17} />
+      </button>
+    </div>
+  );
+}
+
 export function Vessel({pct,low=false,md=false}){
   const p=clamp(pct,0,100);
   return (

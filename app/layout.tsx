@@ -21,7 +21,7 @@ const disp = Bricolage_Grotesque({
 });
 
 export const metadata: Metadata = {
-  title: 'Ledger — Expense manager',
+  title: 'My Ledger — Expense manager',
   description: 'Zero-based envelope budgeting. Dữ liệu nằm trên máy bạn.',
 };
 

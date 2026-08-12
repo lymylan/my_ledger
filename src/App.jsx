@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
+import { AccountPage } from './components/AccountPage';
 import { AuthGate } from './components/AuthGate';
 import { I } from './components/Icon';
 import { TxSheet } from './components/TxSheet';
@@ -12,14 +13,14 @@ import { JarsScreen } from './components/screens/JarsScreen';
 import { LoansPage } from './components/screens/LoansPage';
 import { PlanSetup } from './components/screens/PlanSetup';
 import { ReportScreen } from './components/screens/ReportScreen';
-import { Sheet } from './components/ui';
+import { Brand, Sheet } from './components/ui';
 import { ask, setAsk } from './lib/ask';
 import { loanStat } from './lib/derive';
 import { dstr, mLabelLong, money, shiftYm, ymOf } from './lib/format';
 import { auth } from './lib/firebase';
-import { emptyState, migrate, parseBackup, seed } from './lib/state';
+import { emptyState, migrate } from './lib/state';
 import {
-  loadState, saveState, wipe, flushSave, cancelPendingSave, setSaveErrorHandler,
+  loadState, saveState, flushSave, cancelPendingSave, setSaveErrorHandler,
 } from './lib/storage';
 
 const TABS=[
@@ -43,8 +44,8 @@ export default function App(){
   const [closing,setClosing]=useState(false);
   const [planPage,setPlanPage]=useState(false);
   const [loanPage,setLoanPage]=useState(false);
+  const [accPage,setAccPage]=useState(false);
   const tt=useRef(null);
-  const fileRef=useRef(null);
 
   const set=fn=>setSt(prev=>{const d=JSON.parse(JSON.stringify(prev));fn(d);return d});
   const toast=t=>{setMsg(t);clearTimeout(tt.current);tt.current=setTimeout(()=>setMsg(null),2200)};
@@ -111,34 +112,23 @@ export default function App(){
   const doSignOut=async()=>{
     await flushSave();
     setCfg(false); setTab('jars'); setCatId(null);
-    setClosing(false); setPlanPage(false); setLoanPage(false);
+    setClosing(false); setPlanPage(false); setLoanPage(false); setAccPage(false);
     await signOut(auth);
   };
 
-  const restoreBackup=async e=>{
-    const f=e.target.files&&e.target.files[0];
-    e.target.value='';                       // reset để chọn lại cùng file vẫn kích hoạt onChange
-    if(!f)return;
-    let next;
-    try{ next=parseBackup(await f.text()) }
-    catch(err){ toast(err.message); return }
-    const n=next.txns.length;
-    ask('Restore '+n+' transaction'+(n===1?'':'s')+' from this file? Everything you have now will be replaced.',()=>{
-      setSt(next); setCfg(false); setTab('jars'); setCatId(null); toast('Backup restored');
-    },'Restore');
-  };
 
   if(user===undefined)return <div className="empty" style={{paddingTop:120}}>Loading…</div>;
   if(!user)return <AuthGate/>;
   if(!st)return <div className="empty" style={{paddingTop:120}}>Loading…</div>;
 
   const catJar=catId?st.jars.find(x=>x.id===catId):null;
-  const sub=!!catJar||closing||planPage||loanPage;
+  const sub=!!catJar||closing||planPage||loanPage||accPage;
   const subTitle=closing?('Close '+mLabelLong(ym))
-    :planPage?'Plan template':loanPage?'Money I lent':(catJar?catJar.name:'');
-  const leaveSub=()=>{setCatId(null);setClosing(false);setPlanPage(false);setLoanPage(false)};
+    :planPage?'Plan template':loanPage?'Money I lent':accPage?'Account'
+    :(catJar?catJar.name:'');
+  const leaveSub=()=>{setCatId(null);setClosing(false);setPlanPage(false);setLoanPage(false);setAccPage(false)};
   const go=k=>{
-    setCatId(null); setClosing(false); setPlanPage(false); setLoanPage(false);
+    setCatId(null); setClosing(false); setPlanPage(false); setLoanPage(false); setAccPage(false);
     if(k==='add') openTx({date: ymOf(new Date())===ym ? dstr(new Date()) : ym+'-01'});
     else setTab(k);
   };
@@ -147,18 +137,14 @@ export default function App(){
   return (
     <div className="app">
       <nav className="rail">
-        <div className="brand" style={{padding:'6px 12px 14px'}}>
-          <span style={{width:26,height:26,borderRadius:8,background:'var(--indigo)',color:'#fff',display:'grid',placeItems:'center'}}>
-            <I n="book" s={15}/></span>
-          Ledger
-        </div>
+        <div className="brand" style={{padding:'6px 12px 14px'}}><Brand size={26}/></div>
         {TABS.filter(t=>t.k!=='add').map(t=>(
           <button key={t.k} className={'rb'+(tab===t.k&&!sub?' on':'')} onClick={()=>go(t.k)}>
             <I n={t.i} s={18}/>{t.n}</button>
         ))}
         <button className="rb add" onClick={()=>go('add')}><I n="plus" s={18}/>Add transaction</button>
         <div className="grow"/>
-        <button className="rb" onClick={()=>setCfg(true)}><I n="cog" s={18}/>Data</button>
+        <button className="rb" onClick={()=>setCfg(true)}><I n="cog" s={18}/>Settings</button>
       </nav>
 
       <main className={'main'+(sub?' sub':'')}>
@@ -168,16 +154,13 @@ export default function App(){
               <I n="left" s={17}/></button>
             <div className="topbar-t">{subTitle}</div>
           </>) : (<>
-            <div className="brand only-mob">
-              <span style={{width:24,height:24,borderRadius:7,background:'var(--indigo)',color:'#fff',display:'grid',placeItems:'center'}}>
-                <I n="book" s={14}/></span>Ledger
-            </div>
+            <div className="brand only-mob"><Brand size={24}/></div>
             <div className="mswitch">
               <button onClick={()=>setYm(y=>shiftYm(y,-1))} aria-label="Previous month"><I n="left" s={15}/></button>
               <span className="lbl">{mLabelLong(ym)}</span>
               <button onClick={()=>setYm(y=>shiftYm(y,1))} aria-label="Next month"><I n="right" s={15}/></button>
             </div>
-            <button className="iconbtn" onClick={()=>setCfg(true)} aria-label="Data"><I n="cog" s={16}/></button>
+            <button className="iconbtn" onClick={()=>setCfg(true)} aria-label="Settings"><I n="cog" s={16}/></button>
           </>)}
         </div></div>
 
@@ -188,6 +171,8 @@ export default function App(){
           ? <PlanSetup st={st} set={set} toast={toast}/>
           : loanPage
           ? <LoansPage st={st} set={set} toast={toast}/>
+          : accPage
+          ? <AccountPage user={user} onSignOut={doSignOut} toast={toast}/>
           : <Screen st={st} set={set} ym={ym} setYm={setYm} toast={toast} openTx={openTx}
               catId={catId} setCatId={setCatId} openClose={()=>setClosing(true)}/>}
       </main>
@@ -235,46 +220,15 @@ export default function App(){
             </div>
             <span className="trail"><I n="right" s={16}/></span>
           </button>
+          <button className="row" onClick={()=>{setCfg(false);setAccPage(true)}}>
+            <div className="dot n"><I n="key" s={17}/></div>
+            <div className="row-b">
+              <div className="row-t">Account</div>
+              <div className="row-s">{user.email}</div>
+            </div>
+            <span className="trail"><I n="right" s={16}/></span>
+          </button>
         </div>
-
-        <div className="sec-h"><h2>Data</h2></div>
-        <div className="card">
-          <div className="row"><div className="row-b"><div className="row-t">Transactions</div>
-            <div className="row-s">Total records</div></div><div className="amt">{st.txns.length}</div></div>
-          <div className="row"><div className="row-b"><div className="row-t">Categories</div>
-            <div className="row-s">Across {st.accounts.length} accounts</div></div><div className="amt">{st.jars.length}</div></div>
-          <div className="row"><div className="row-b"><div className="row-t">Installments</div>
-            <div className="row-s">Being tracked</div></div><div className="amt">{st.installments.length}</div></div>
-        </div>
-        {/* Câu cũ ở đây là "Your data stays on this device. Nothing is sent
-            anywhere." — đã thành SAI khi chuyển sang Firestore. */}
-        <p className="mut" style={{fontSize:12.5}}>
-          Synced to your account. Only you can read it.</p>
-        <button className="btn gho blk" style={{marginBottom:9}} onClick={()=>{
-          const blob=new Blob([JSON.stringify(st,null,2)],{type:'application/json'});
-          const a=document.createElement('a');a.href=URL.createObjectURL(blob);
-          a.download='ledger-'+dstr(new Date())+'.json';a.click();
-        }}>Download backup (.json)</button>
-        <input ref={fileRef} type="file" accept="application/json,.json"
-          style={{display:'none'}} onChange={restoreBackup}/>
-        <button className="btn gho blk" style={{marginBottom:9}}
-          onClick={()=>fileRef.current&&fileRef.current.click()}>Restore from backup (.json)</button>
-        <button className="btn gho blk" style={{marginBottom:9}}
-          onClick={()=>ask('Load sample data? Everything you have now will be replaced.',()=>{
-            setSt(seed());setCfg(false);toast('Sample data loaded');
-          },'Load')}>Load sample data</button>
-        <button className="btn dan blk"
-          onClick={()=>ask('Erase all data and start fresh? This cannot be undone.',async()=>{
-            await wipe();setSt(emptyState());setCfg(false);setTab('jars');toast('All data erased');
-          },'Erase')}>Erase everything</button>
-
-        <div className="sec-h"><h2>Account</h2></div>
-        <div className="card">
-          <div className="row"><div className="row-b"><div className="row-t">Signed in as</div>
-            <div className="row-s">{user.email}</div></div></div>
-        </div>
-        <button className="btn gho blk" onClick={()=>ask('Sign out?',doSignOut,'Sign out')}>
-          Sign out</button>
       </Sheet>}
     </div>
   );

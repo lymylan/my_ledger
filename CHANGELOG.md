@@ -142,6 +142,33 @@ Debounce kiểm bằng `updateTime` phía server: sau 250ms chưa ghi, sau ~1650
 ghi. (Phép đo đầu bằng cách đếm `fetch` là **sai** — burst trải dài hơn cửa sổ
 700ms, và Firestore SDK dùng WebChannel nên số fetch không map 1:1 với write.)
 
+## Giai đoạn 8 — Đổi tên My Ledger, dọn Settings, quản lý account
+
+- Tên app **Ledger → My Ledger**
+- **Logo gom vào component `Brand`** dùng chung. Trước đó ba chỗ tự dựng markup
+  riêng nên dùng **ba icon khác nhau** (`book` ở sidebar, `book` ở top bar,
+  `jar` ở màn đăng nhập). Giờ tất cả dùng icon `wallet`, và không lệch lại được
+- **`PasswordInput`** dùng chung, có nút con mắt. State `show` nằm trong chính
+  component nên ba ô ở form đổi mật khẩu **độc lập** — bật ô này không lộ ô kia
+- Dịch lỗi Firebase chuyển sang `lib/authErrors.js`, dùng chung cho AuthGate và
+  AccountPage thay vì mỗi chỗ một bản
+- **`AccountPage`** là page **level-2**, cùng pattern với Plan template và Money
+  I lent. Cố ý không dùng Sheet-trong-Sheet: `Sheet` set `document.body.overflow`
+  và nghe Escape, hai cái lồng nhau sẽ tranh nhau khi đóng cái trong
+- Đổi mật khẩu bắt buộc `reauthenticateWithCredential` trước `updatePassword` —
+  Firebase yêu cầu, và cũng là lớp chặn người khác đổi khi máy đang mở
+- Nhãn `Data` ở sidebar/top bar → `Settings`
+
+### Đã bỏ khỏi UI theo yêu cầu
+
+*Download backup* · *Restore from backup* · *Load sample data* ·
+*Erase everything* · bảng đếm Transactions/Categories/Installments.
+
+⚠️ *Download backup* từng là **lưới an toàn duy nhất** cho tình huống quên mật
+khẩu / mất email = mất quyền vào dữ liệu. Đã nêu rủi ro trước khi làm. Hàm
+`parseBackup()` và 10 test của nó vẫn còn trong `lib/state.js`, nên khôi phục
+lại chỉ là thêm 2 nút.
+
 ## Những hướng đã cân nhắc và loại bỏ
 
 | Ý tưởng | Lý do loại |

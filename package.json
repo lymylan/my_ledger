@@ -1,8 +1,8 @@
 {
-  "name": "ledger",
+  "name": "my-ledger",
   "version": "1.0.0",
   "private": true,
-  "description": "Ledger — zero-based envelope budgeting app",
+  "description": "My Ledger — zero-based envelope budgeting app",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
