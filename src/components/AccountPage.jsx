@@ -4,14 +4,15 @@ import {
 } from 'firebase/auth';
 import { auth } from '../lib/firebase';
 import { readableAuthError } from '../lib/authErrors';
-import { ask } from '../lib/ask';
 import { I } from './Icon';
 import { Field, PasswordInput } from './ui';
 
 /* Page level-2 mở từ ⚙ Settings, cùng pattern với Plan template và Money I lent.
    Cố ý KHÔNG dùng Sheet lồng trong Sheet: Sheet set document.body.overflow và
    nghe Escape, hai cái lồng nhau sẽ tranh nhau khi đóng cái trong. */
-export function AccountPage({ user, onSignOut, toast }) {
+/* Sign out KHÔNG ở đây — nó nằm ngay trong ⚙ Settings để đăng xuất không phải
+   đi thêm một tầng. Page này chỉ còn việc liên quan tới mật khẩu. */
+export function AccountPage({ user, toast }) {
   const [cur, setCur] = useState('');
   const [next, setNext] = useState('');
   const [again, setAgain] = useState('');
@@ -86,11 +87,6 @@ export function AccountPage({ user, onSignOut, toast }) {
         If you forget it, use <b>Forgot your password?</b> on the sign-in screen —
         it emails a reset link to {user.email}.
       </p>
-
-      <div className="sec-h"><h2>Session</h2></div>
-      <button className="btn gho blk" onClick={() => ask('Sign out?', onSignOut, 'Sign out')}>
-        Sign out
-      </button>
     </div>
   );
 }

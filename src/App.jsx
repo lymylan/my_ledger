@@ -172,7 +172,7 @@ export default function App(){
           : loanPage
           ? <LoansPage st={st} set={set} toast={toast}/>
           : accPage
-          ? <AccountPage user={user} onSignOut={doSignOut} toast={toast}/>
+          ? <AccountPage user={user} toast={toast}/>
           : <Screen st={st} set={set} ym={ym} setYm={setYm} toast={toast} openTx={openTx}
               catId={catId} setCatId={setCatId} openClose={()=>setClosing(true)}/>}
       </main>
@@ -229,6 +229,9 @@ export default function App(){
             <span className="trail"><I n="right" s={16}/></span>
           </button>
         </div>
+
+        <button className="btn gho blk" style={{marginTop:9}}
+          onClick={()=>ask('Sign out?',doSignOut,'Sign out')}>Sign out</button>
       </Sheet>}
     </div>
   );
