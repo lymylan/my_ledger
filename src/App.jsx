@@ -1,6 +1,8 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import { onAuthStateChanged, signOut } from 'firebase/auth';
+import { AuthGate } from './components/AuthGate';
 import { I } from './components/Icon';
 import { TxSheet } from './components/TxSheet';
 import { CalendarScreen } from './components/screens/CalendarScreen';
@@ -14,8 +16,11 @@ import { Sheet } from './components/ui';
 import { ask, setAsk } from './lib/ask';
 import { loanStat } from './lib/derive';
 import { dstr, mLabelLong, money, shiftYm, ymOf } from './lib/format';
+import { auth } from './lib/firebase';
 import { emptyState, migrate, parseBackup, seed } from './lib/state';
-import { loadState, saveState, wipe } from './lib/storage';
+import {
+  loadState, saveState, wipe, flushSave, cancelPendingSave, setSaveErrorHandler,
+} from './lib/storage';
 
 const TABS=[
   {k:'jars',n:'Categories',i:'wallet'},
@@ -26,6 +31,7 @@ const TABS=[
 ];
 
 export default function App(){
+  const [user,setUser]=useState(undefined);   // undefined = đang kiểm session · null = chưa đăng nhập
   const [st,setSt]=useState(null);
   const [tab,setTab]=useState('jars');
   const [ym,setYm]=useState(ymOf(new Date()));
@@ -40,24 +46,74 @@ export default function App(){
   const tt=useRef(null);
   const fileRef=useRef(null);
 
-  /* Máy trống -> state RỖNG, không tự nạp dữ liệu mẫu nữa. Mọi screen đã có
-     empty state sẵn ("No accounts yet" + nút Add account), nên mở lần đầu là
-     bắt đầu ghi thật được luôn. seed() vẫn giữ, nằm sau nút Load sample data
-     trong ⚙ Settings.
+  const set=fn=>setSt(prev=>{const d=JSON.parse(JSON.stringify(prev));fn(d);return d});
+  const toast=t=>{setMsg(t);clearTimeout(tt.current);tt.current=setTimeout(()=>setMsg(null),2200)};
+  const openTx=t=>setTx(t||{});
 
-     cancelled-guard để effect an toàn với StrictMode (gọi 2 lần trong dev). */
+  /* onAuthStateChanged là nguồn sự thật cho trạng thái đăng nhập. Firebase khôi
+     phục session từ IndexedDB nên lần gọi đầu có thể chậm vài trăm ms — đó là
+     lý do `user` khởi tạo là undefined chứ không phải null: nếu không sẽ nháy
+     màn đăng nhập một nhịp rồi mới vào app. */
+  useEffect(()=>onAuthStateChanged(auth,u=>{
+    setUser(u||null);
+    if(!u){ cancelPendingSave(); setSt(null) }   // đăng xuất: đừng để write đang chờ ghi tiếp
+  }),[]);
+
+  /* Nạp sổ từ Firestore sau khi biết là ai. Tài khoản mới -> emptyState, mọi
+     screen đã có empty state sẵn nên dùng được ngay.
+     cancelled-guard cho StrictMode (effect gọi 2 lần trong dev). */
   useEffect(()=>{
+    if(!user){ return }
     let cancelled=false;
-    (async()=>{const s=await loadState();if(!cancelled)setSt(migrate(s||emptyState()))})();
+    (async()=>{
+      try{
+        const s=await loadState();
+        if(!cancelled) setSt(migrate(s||emptyState()));
+      }catch(e){
+        /* KHÔNG rơi về emptyState ở đây: nếu Firestore lỗi mà ta hiện sổ trống
+           thì effect saveState bên dưới sẽ ghi cái sổ trống đó lên, xoá sạch dữ
+           liệu thật. Để `st` là null (màn Loading) và báo lỗi. */
+        if(!cancelled) toast('Could not load your ledger: '+(e.message||'unknown'));
+      }
+    })();
     return()=>{cancelled=true};
-  },[]);
+  },[user]);
+
   useEffect(()=>{if(st)saveState(st)},[st]);
   useEffect(()=>{setAsk((msg,onOk,okLabel)=>setBox({msg,onOk,okLabel:okLabel||'Delete'}));
     return()=>{setAsk(null)}},[]);
 
-  const set=fn=>setSt(prev=>{const d=JSON.parse(JSON.stringify(prev));fn(d);return d});
-  const toast=t=>{setMsg(t);clearTimeout(tt.current);tt.current=setTimeout(()=>setMsg(null),2200)};
-  const openTx=t=>setTx(t||{});
+  /* Ghi thất bại phải nhìn thấy được. Im lặng .catch() thì mất mạng sẽ trông
+     như đã lưu xong — rất tệ với sổ chi tiêu. */
+  useEffect(()=>{
+    setSaveErrorHandler(e=>{
+      const c=(e&&e.code)||'', m=(e&&e.message)||'';
+      toast(c==='permission-denied' ? 'Not saved — permission denied.'
+        : /offline|unavailable|network/i.test(c+m) ? 'Not saved — you are offline.'
+        : 'Not saved: '+(m||'unknown error'));
+    });
+    return()=>setSaveErrorHandler(null);
+  },[]);
+
+  /* Thao tác cuối cùng còn nằm trong debounce 700ms sẽ mất nếu đóng tab ngay. */
+  useEffect(()=>{
+    const onHide=()=>{ if(document.visibilityState==='hidden') flushSave() };
+    document.addEventListener('visibilitychange',onHide);
+    window.addEventListener('pagehide',flushSave);
+    return()=>{
+      document.removeEventListener('visibilitychange',onHide);
+      window.removeEventListener('pagehide',flushSave);
+    };
+  },[]);
+
+  /* flushSave TRƯỚC khi signOut: sau khi đăng xuất thì stateRef() không còn
+     currentUser để ghi, thao tác cuối trong debounce sẽ mất im lặng. */
+  const doSignOut=async()=>{
+    await flushSave();
+    setCfg(false); setTab('jars'); setCatId(null);
+    setClosing(false); setPlanPage(false); setLoanPage(false);
+    await signOut(auth);
+  };
 
   const restoreBackup=async e=>{
     const f=e.target.files&&e.target.files[0];
@@ -72,6 +128,8 @@ export default function App(){
     },'Restore');
   };
 
+  if(user===undefined)return <div className="empty" style={{paddingTop:120}}>Loading…</div>;
+  if(!user)return <AuthGate/>;
   if(!st)return <div className="empty" style={{paddingTop:120}}>Loading…</div>;
 
   const catJar=catId?st.jars.find(x=>x.id===catId):null;
@@ -188,7 +246,10 @@ export default function App(){
           <div className="row"><div className="row-b"><div className="row-t">Installments</div>
             <div className="row-s">Being tracked</div></div><div className="amt">{st.installments.length}</div></div>
         </div>
-        <p className="mut" style={{fontSize:12.5}}>Your data stays on this device. Nothing is sent anywhere.</p>
+        {/* Câu cũ ở đây là "Your data stays on this device. Nothing is sent
+            anywhere." — đã thành SAI khi chuyển sang Firestore. */}
+        <p className="mut" style={{fontSize:12.5}}>
+          Synced to your account. Only you can read it.</p>
         <button className="btn gho blk" style={{marginBottom:9}} onClick={()=>{
           const blob=new Blob([JSON.stringify(st,null,2)],{type:'application/json'});
           const a=document.createElement('a');a.href=URL.createObjectURL(blob);
@@ -206,6 +267,14 @@ export default function App(){
           onClick={()=>ask('Erase all data and start fresh? This cannot be undone.',async()=>{
             await wipe();setSt(emptyState());setCfg(false);setTab('jars');toast('All data erased');
           },'Erase')}>Erase everything</button>
+
+        <div className="sec-h"><h2>Account</h2></div>
+        <div className="card">
+          <div className="row"><div className="row-b"><div className="row-t">Signed in as</div>
+            <div className="row-s">{user.email}</div></div></div>
+        </div>
+        <button className="btn gho blk" onClick={()=>ask('Sign out?',doSignOut,'Sign out')}>
+          Sign out</button>
       </Sheet>}
     </div>
   );

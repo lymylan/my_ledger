@@ -1,0 +1,19 @@
+rules_version = '2';
+
+/* Toàn bộ dữ liệu của một người nằm dưới users/{uid}, và CHỈ chính người đó
+   đọc/ghi được. Rule chạy phía server nên không thể bypass từ client —
+   đây là chỗ chịu trách nhiệm bảo mật thật, không phải apiKey. */
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    match /users/{uid}/{document=**} {
+      allow read, write: if request.auth != null && request.auth.uid == uid;
+    }
+
+    /* Mặc định chặn hết. Bất cứ path nào chưa khai ở trên đều không truy cập
+       được, kể cả khi đã đăng nhập. */
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
