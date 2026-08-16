@@ -11,6 +11,31 @@ export function migrate(s){
   });
   return s;
 }
+
+/* Một giao dịch, chuẩn hoá về đúng hình dạng lưu xuống Firestore.
+
+   Hàm này pure và nằm ở state.js chứ không phải storage.js vì hai lý do: test
+   được mà không cần biến môi trường Firebase, và server-side (nếu sau này có API
+   ghi vào sổ) cần đúng luật này để validate.
+
+   Hai thứ nó chặn:
+   - undefined. Firestore TỪ CHỐI giá trị undefined, mà giao dịch bản cũ có thể
+     thiếu hẳn key fromJarId/toJarId. Ép về null.
+   - tagId đơn của bản rất cũ -> mảng tagIds, giống migrate() làm cho state. */
+export function normalizeTxn(t){
+  return {
+    id: t.id,
+    date: t.date,
+    type: t.type,
+    amount: Number(t.amount) || 0,
+    jarId: t.jarId ?? null,
+    fromJarId: t.fromJarId ?? null,
+    toJarId: t.toJarId ?? null,
+    tagIds: Array.isArray(t.tagIds) ? t.tagIds : (t.tagId ? [t.tagId] : []),
+    note: t.note ?? '',
+    source: t.source ?? 'app',
+  };
+}
 export function emptyState(){
   return {v:1,accounts:[],jars:[],openings:{},tags:[],txns:[],template:[],plans:{},installments:[],loans:[],closes:{},hiddenJars:[]};
 }

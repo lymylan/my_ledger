@@ -166,7 +166,7 @@ export function MoneyInput({value,onChange,placeholder='0',autoFocus,boxed,cente
 
   return <>{field}{children}{foot}</>;
 }
-export function TagPicker({st,set,value,onChange}){
+export function TagPicker({st,set,txw,value,onChange}){
   const [mgr,setMgr]=useState(false);
   const sel=value||[];
   const toggle=id=>onChange(sel.includes(id)?sel.filter(x=>x!==id):[...sel,id]);
@@ -175,10 +175,13 @@ export function TagPicker({st,set,value,onChange}){
     set(d=>{d.tags.push({id,name:name.trim(),color:TAG_COLORS[d.tags.length%TAG_COLORS.length]})});
     onChange([...sel,id]);
   };
-  const del=t=>ask('Delete tag "'+t.name+'"? It will be removed from every transaction and loan using it.',()=>{
+  /* Gỡ tag khỏi giao dịch TRƯỚC, rồi mới xoá tag khỏi state. Ngược lại thì một
+     lỗi mạng giữa chừng để lại tagIds trỏ tới tag không còn tồn tại.
+     txw.stripTag chạm mọi tháng, không chỉ tháng đang mở. */
+  const del=t=>ask('Delete tag "'+t.name+'"? It will be removed from every transaction and loan using it.',async()=>{
+    if(!await txw.stripTag(t.id))return;
     set(d=>{
       d.tags=d.tags.filter(x=>x.id!==t.id);
-      d.txns.forEach(x=>{x.tagIds=(x.tagIds||[]).filter(id=>id!==t.id)});
       (d.loans||[]).forEach(l=>{l.tagIds=(l.tagIds||[]).filter(id=>id!==t.id)});
     });
     onChange(sel.filter(id=>id!==t.id));

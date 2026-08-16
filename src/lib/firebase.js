@@ -25,7 +25,13 @@ export const app = getApps().length ? getApp() : initializeApp(cfg);
 export const auth = getAuth(app);
 
 /* CHỦ Ý không bật persistentLocalCache: đã chốt server-first — Firestore là
-   nguồn sự thật duy nhất, không cache offline, nên không cần cờ rev chống
-   thiết bị cũ ghi đè. Đổi lại: mất mạng là không ghi được.
-   Lưới an toàn là ⚙ → Download backup (.json). */
+   nguồn sự thật duy nhất, không cache offline. Đổi lại: mất mạng là không ghi
+   được. Lưới an toàn là ⚙ → Download backup (.json).
+
+   Không có cache offline KHÔNG có nghĩa là không cần chống ghi đè. Lập luận cũ
+   ("không cache thì không có thiết bị cũ nào ghi đè") chỉ đúng cho thiết bị khôi
+   phục từ cache, không đúng cho HAI TAB ĐANG MỞ: tab mở lúc 9h vẫn giữ state 9h
+   trong bộ nhớ, tới 10h ghi một thay đổi nhỏ là đè sạch việc tab kia đã làm.
+   Vì vậy ledger/state có cờ `rev` và mọi write đi qua runTransaction —
+   xem lib/storage.js. */
 export const db = getFirestore(app);

@@ -5,64 +5,74 @@ import { MON, clamp, dstr, mLabel, mLabelLong, money, pad, parseD, uid, ymOfDate
 import { I } from '../Icon';
 import { Field, JarSelect, MoneyInput, Sheet, TagPicker, Vessel } from '../ui';
 
-export function LoansPage({st,set,toast}){
+export function LoansPage({st,set,txw,toast}){
   const [open,setOpen]=useState(null);
   const [form,setForm]=useState(null);
   const [pay,setPay]=useState(null);
   const today=dstr(new Date());
   const totalOut=st.loans.reduce((a,g)=>a+loanStat(g).left,0);
 
-  const saveLoan=()=>{
+  /* Mọi hàm dưới đây ghi GIAO DỊCH lên server trước, rồi mới sửa state trong bộ
+     nhớ. Giao dịch gắn với khoản vay có thể nằm ở tháng khác tháng đang xem nên
+     không còn tìm thấy trong d.txns — phải đọc/ghi qua txw theo id. */
+  const saveLoan=async()=>{
     const f=form;
-    set(d=>{
-      if(f.id){
+    if(f.id){
+      const g=st.loans.find(x=>x.id===f.id);
+      if(g&&g.txnId){
+        let t;
+        try{ t=await txw.get(g.txnId) }
+        catch{ toast('Not saved — could not read the original expense'); return }
+        if(t&&!await txw.put({...t,amount:f.total,date:f.date,jarId:f.jarId,
+          tagIds:f.tagIds,note:'Lent · '+f.name.trim()}))return;
+      }
+      set(d=>{
         const g=d.loans.find(x=>x.id===f.id);
         g.payments=buildLoanPeriods(f.date,f.periods,f.total,g.payments);
         Object.assign(g,{name:f.name.trim(),note:f.note,total:f.total,date:f.date,
           jarId:f.jarId,tagIds:f.tagIds,periods:f.periods});
-        const t=d.txns.find(x=>x.id===g.txnId);
-        if(t)Object.assign(t,{amount:f.total,date:f.date,jarId:f.jarId,
-          tagIds:f.tagIds,note:'Lent · '+f.name.trim()});
-      } else {
-        const txId=uid();
-        d.txns.push({id:txId,type:'expense',amount:f.total,date:f.date,jarId:f.jarId,
-          fromJarId:null,toJarId:null,tagIds:f.tagIds,note:'Lent · '+f.name.trim()});
+      });
+    } else {
+      const txId=uid();
+      if(!await txw.put({id:txId,type:'expense',amount:f.total,date:f.date,jarId:f.jarId,
+        fromJarId:null,toJarId:null,tagIds:f.tagIds,note:'Lent · '+f.name.trim()}))return;
+      set(d=>{
         d.loans.push({id:uid(),name:f.name.trim(),note:f.note,total:f.total,date:f.date,
           jarId:f.jarId,tagIds:f.tagIds,txnId:txId,periods:f.periods,
           payments:buildLoanPeriods(f.date,f.periods,f.total,null)});
-      }
-    });
+      });
+    }
     setForm(null);
     toast(f.id?'Loan updated':'Loan recorded — '+money(f.total)+' ₫ deducted');
   };
 
-  const delLoan=g=>ask('Delete this loan? The original expense and every repayment it created will be removed too.',()=>{
-    set(d=>{
-      const ids=[g.txnId,...g.payments.map(p=>p.txnId)].filter(Boolean);
-      d.txns=d.txns.filter(t=>!ids.includes(t.id));
-      d.loans=d.loans.filter(x=>x.id!==g.id);
-    });
+  const delLoan=g=>ask('Delete this loan? The original expense and every repayment it created will be removed too.',async()=>{
+    const ids=[g.txnId,...g.payments.map(p=>p.txnId)].filter(Boolean);
+    if(!await txw.delMany(ids))return;
+    set(d=>{d.loans=d.loans.filter(x=>x.id!==g.id)});
     setOpen(null); toast('Loan deleted');
   });
 
-  const confirmPay=()=>{
+  const confirmPay=async()=>{
     const f=pay;
+    const g=st.loans.find(x=>x.id===f.loanId);
+    if(!g)return;
+    const txId=uid();
+    if(!await txw.put({id:txId,type:'income',amount:f.amount,date:f.date,jarId:f.jarId,
+      fromJarId:null,toJarId:null,tagIds:g.tagIds||[],note:'Repaid · '+g.name}))return;
     set(d=>{
-      const g=d.loans.find(x=>x.id===f.loanId);
-      const p=g.payments.find(y=>y.i===f.i);
-      const txId=uid();
-      d.txns.push({id:txId,type:'income',amount:f.amount,date:f.date,jarId:f.jarId,
-        fromJarId:null,toJarId:null,tagIds:g.tagIds||[],note:'Repaid · '+g.name});
+      const gg=d.loans.find(x=>x.id===f.loanId);
+      const p=gg.payments.find(y=>y.i===f.i);
       Object.assign(p,{paid:true,paidAt:f.date,jarId:f.jarId,txnId:txId,amount:f.amount});
     });
     setPay(null); toast(money(f.amount)+' ₫ added back');
   };
 
-  const undoPay=(g,p)=>ask('Undo this repayment? The income transaction will be removed.',()=>{
+  const undoPay=(g,p)=>ask('Undo this repayment? The income transaction will be removed.',async()=>{
+    if(p.txnId&&!await txw.del(p.txnId))return;
     set(d=>{
       const gg=d.loans.find(x=>x.id===g.id);
       const pp=gg.payments.find(y=>y.i===p.i);
-      if(pp.txnId) d.txns=d.txns.filter(t=>t.id!==pp.txnId);
       Object.assign(pp,{paid:false,paidAt:null,jarId:null,txnId:null});
     });
   },'Undo');
@@ -201,7 +211,7 @@ export function LoansPage({st,set,toast}){
           value={form.date} onChange={e=>setForm(s=>({...s,date:e.target.value}))}/></Field></div>
       </div>
       <Field label="Tags">
-        <TagPicker st={st} set={set} value={form.tagIds||[]}
+        <TagPicker st={st} set={set} txw={txw} value={form.tagIds||[]}
           onChange={ids=>setForm(s=>({...s,tagIds:ids}))}/>
       </Field>
       {form.total>0&&form.periods>0&&<div className="card pad">

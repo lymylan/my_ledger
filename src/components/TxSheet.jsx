@@ -4,7 +4,7 @@ import { dstr, uid } from '../lib/format';
 import { I } from './Icon';
 import { Field, JarSelect, MoneyInput, Sheet, TagPicker } from './ui';
 
-export function TxSheet({st,set,tx,onClose,toast}){
+export function TxSheet({st,set,txw,tx,onClose,toast}){
   const isNew=!tx.id;
   const [f,setF]=useState(()=>({
     id:tx.id||null,
@@ -19,27 +19,32 @@ export function TxSheet({st,set,tx,onClose,toast}){
   }));
   const valid=f.amount>0 && (f.type==='transfer'?(f.fromJarId&&f.toJarId&&f.fromJarId!==f.toJarId):!!f.jarId);
 
-  const save=()=>{
-    set(d=>{
-      const rec={id:f.id||uid(),type:f.type,amount:f.amount,date:f.date,note:f.note.trim(),
-        jarId:f.type==='transfer'?null:f.jarId,
-        fromJarId:f.type==='transfer'?f.fromJarId:null,
-        toJarId:f.type==='transfer'?f.toJarId:null,
-        tagIds:f.tagIds};
-      if(f.id){const i=d.txns.findIndex(x=>x.id===f.id);d.txns[i]=rec} else d.txns.push(rec);
-    });
+  /* Ghi thẳng lên Firestore rồi mới đóng sheet. Ghi hỏng thì giữ sheet mở với
+     nguyên số vừa nhập — trước đây sheet đóng ngay và người dùng tưởng đã lưu. */
+  const [busy,setBusy]=useState(false);
+  const save=async()=>{
+    const rec={id:f.id||uid(),type:f.type,amount:f.amount,date:f.date,note:f.note.trim(),
+      jarId:f.type==='transfer'?null:f.jarId,
+      fromJarId:f.type==='transfer'?f.fromJarId:null,
+      toJarId:f.type==='transfer'?f.toJarId:null,
+      tagIds:f.tagIds};
+    setBusy(true);
+    const ok=await txw.put(rec);
+    setBusy(false);
+    if(!ok)return;
     onClose(); toast(isNew?'Transaction added':'Transaction updated');
   };
-  const del=()=>ask('Delete this transaction?',()=>{
-    set(d=>{d.txns=d.txns.filter(x=>x.id!==f.id)}); onClose(); toast('Transaction deleted');
+  const del=()=>ask('Delete this transaction?',async()=>{
+    if(!await txw.del(f.id))return;
+    onClose(); toast('Transaction deleted');
   });
 
   return (
     <Sheet title={isNew?'Add transaction':'Edit transaction'} onClose={onClose}
       footer={<>
         {!isNew&&<button className="btn dan sm" onClick={del}><I n="trash" s={15}/></button>}
-        <button className="btn pri grow" disabled={!valid} onClick={save}>
-          {isNew?'Save transaction':'Save changes'}</button>
+        <button className="btn pri grow" disabled={!valid||busy} onClick={save}>
+          {busy?'Saving…':isNew?'Save transaction':'Save changes'}</button>
       </>}>
       <div className="seg" style={{marginBottom:14}}>
         {[['expense','Expense','out'],['income','Income','in'],['transfer','Transfer','move']].map(([k,n,c])=>
@@ -63,7 +68,7 @@ export function TxSheet({st,set,tx,onClose,toast}){
       )}
 
       <Field label="Tag">
-        <TagPicker st={st} set={set} value={f.tagIds}
+        <TagPicker st={st} set={set} txw={txw} value={f.tagIds}
           onChange={ids=>setF(s=>({...s,tagIds:ids}))}/>
       </Field>
 

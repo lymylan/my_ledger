@@ -38,9 +38,13 @@ tự), rồi được **sổ trống** — không có dữ liệu mẫu. Mọi s
 nên ghi thật được luôn: *+ Add account* → *+ Add category* → tab **+** để ghi
 giao dịch.
 
-⚙ Settings giờ chỉ còn 3 mục: **Plan template** · **Money I lent** · **Account**.
-Các nút *Download backup* / *Restore from backup* / *Load sample data* /
-*Erase everything* **đã bị bỏ khỏi UI** theo yêu cầu chủ dự án — xem §7.
+⚙ Settings có 3 mục **Plan template** · **Money I lent** · **Account**, cộng phần
+**Backup** với *Download backup (.json)* và *Restore from backup (.json)*.
+*Load sample data* và *Erase everything* vẫn bỏ khỏi UI theo yêu cầu chủ dự án.
+
+*Download backup* từng bị gỡ cùng đợt đó rồi được đưa lại: nó là điều kiện tiên
+quyết để tách `txns` sang subcollection — một migration ghi lại dữ liệu thật thì
+phải có đường lùi nằm ngoài Firestore.
 
 Bản một-file gốc vẫn giữ ở `legacy/quan-ly-chi-tieu.html` để đối chiếu pixel khi
 sửa UI. Nó cần Internet để chạy (CDN) và không còn dùng chung dữ liệu với bản mới.
@@ -109,7 +113,7 @@ Hoàn tác kỳ → xoá giao dịch thu đó. Xoá khoản vay → xoá tất c
 
 ## 4. Kiến trúc
 
-2383 dòng JSX/JS chia 21 module, 289 dòng CSS, 244 dòng test.
+2918 dòng JSX/JS chia 21 module, 303 dòng CSS, 314 dòng test.
 
 ```
 app/
@@ -117,15 +121,17 @@ app/
 ├─ page.tsx            'use client' — RANH GIỚI CLIENT DUY NHẤT của toàn app
 └─ globals.css         289 dòng, copy nguyên khối từ bản một-file
 src/
-├─ App.jsx             281  shell, routing, auth gating, confirm dialog, toast
+├─ App.jsx             376  shell, routing, auth gating, confirm dialog, toast,
+│                           thao tác txn (txw), backup, màn chặn khi xung đột rev
 ├─ lib/
 │  ├─ format.js         18  uid, pad, ymOf, money, shortM, mLabel…
 │  ├─ constants.js      12  TAG_COLORS, ACC_COLORS, GROUPS, DOW…
 │  ├─ ask.js             6  cầu nối confirm dialog (thay window.confirm)
 │  ├─ authErrors.js     20  dịch error code Firebase sang câu người đọc được
 │  ├─ firebase.js       31  init app / auth / db từ biến môi trường
-│  ├─ storage.js        71  Firestore + debounce 700ms + flush + báo lỗi ghi
-│  ├─ state.js         143  migrate, emptyState, seed, parseBackup
+│  ├─ storage.js       355  Firestore: state (debounce + rev) · txns (subcollection)
+│  │                        · meta · migration · backup/restore · dịch lỗi ghi
+│  ├─ state.js         168  migrate, normalizeTxn, emptyState, seed, parseBackup
 │  └─ derive.js         65  jarStats, monthSummary, computeOpenings, loanStat…
 └─ components/
    ├─ AuthGate.jsx     113  đăng nhập / tạo tài khoản / reset mật khẩu
@@ -189,32 +195,61 @@ App                     shell, routing, level-2 chrome, confirm dialog, toast
 ### Lưu trữ
 
 ```
-Firestore:  users/{uid}/ledger/state   →  { st: <toàn bộ state>, updatedAt }
+Firestore:  users/{uid}/ledger/state   →  { st: <state, KHÔNG có txns>, rev, txnsV, updatedAt }
+            users/{uid}/ledger/meta    →  { accounts, jars, tags }        ~700 byte
+            users/{uid}/txns/{txnId}   →  một giao dịch = một document
 ```
 
 **Server-first**: Firestore là nguồn sự thật duy nhất. `localStorage` **không còn
-được dùng** — không có cache offline, nên cũng không cần cờ `rev` chống thiết bị
-cũ ghi đè. Đổi lại: mất mạng là không ghi được. Lưới an toàn là ⚙ → *Download
-backup (.json)*.
+được dùng** — không có cache offline. Đổi lại: mất mạng là không ghi được. Lưới
+an toàn là ⚙ → *Download backup (.json)*.
 
 Cả app chỉ chạm storage qua `lib/storage.js`. Không component nào gọi Firestore
 trực tiếp — đó là lý do việc chuyển từ localStorage sang Firestore không phải sửa
 component nào.
 
-`migrate()` vẫn chạy lúc load để nâng cấp dữ liệu cũ (ví dụ `tagId` đơn → mảng
-`tagIds`).
+**Vì sao txns tách ra khỏi `state`.** Trước đây toàn bộ sổ nằm trong một document.
+Ba vấn đề, xếp theo mức nguy hiểm:
 
-**Debounce 700ms.** `useEffect(()=>{if(st)saveState(st)},[st])` ghi **toàn bộ**
-state mỗi lần đổi. Với localStorage thì miễn phí, với Firestore mỗi lần là một
-write có tính tiền, nên `saveState()` gộp lại.
+1. `setDoc` ghi đè **cả** document. Chỉ cần có writer thứ hai là giao dịch bị nuốt
+   im lặng. Mỗi txn một document thì hai writer chạm hai document khác nhau.
+2. Write amplification — thêm một ly cà phê 25k phải upload lại cả sổ.
+3. Trần 1 MiB/document. Đo thật: 94 byte/txn, cộng ~1,08 KB mỗi tháng cho
+   `plans`/`openings`/`closes` → trần khoảng 9.000–10.000 giao dịch.
 
-Hai chỗ dễ mất dữ liệu, đã xử lý — **đừng gỡ**:
+Sau khi tách, phần còn lại chỉ tăng ~1,08 KB/tháng ≈ 75 năm.
+
+`ledger/meta` là bản chiếu của accounts/jars/tags, ghi **cùng transaction** với
+`state` nên không lệch được. Dành cho client ngoài cần danh sách category mà không
+phải kéo cả sổ về.
+
+**txns nạp theo tháng.** `st.txns` trong bộ nhớ chỉ chứa giao dịch của tháng đang
+xem, query theo khoảng `date` (`[ym-01, ym-99]` — điều kiện một field nên
+Firestore tự đánh index, **không cần composite index**). Nhờ vậy `derive.js` và cả
+ba màn hình đọc **không phải sửa dòng nào**: chúng vẫn gọi `monthTxns(st, ym)`.
+
+**Debounce 700ms cho state; giao dịch ghi thẳng.** `saveState()` gộp các thay đổi
+state. Giao dịch không đi qua debounce — mỗi cái là một document nhỏ, ghi ngay,
+server trước rồi mới cập nhật bộ nhớ.
+
+**Cờ `rev` chống ghi đè.** `ledger/state` mang số phiên bản tăng dần; mọi write đi
+qua `runTransaction` và so `rev` client với server. Lệch nghĩa là nơi khác đã sửa
+→ **huỷ ghi**, `setStaleHandler()` bắn lên App, App hiện màn chặn bắt reload.
+
+Các chỗ dễ mất dữ liệu, đã xử lý — **đừng gỡ**:
 
 | Cơ chế | Nếu bỏ đi |
 |---|---|
 | `flushSave()` ở `pagehide`/`visibilitychange` và trước `signOut` | Thao tác cuối còn trong debounce mất im lặng |
 | Load lỗi thì để `st = null`, **không** rơi về `emptyState()` | Effect `saveState` sẽ ghi sổ trống đó lên và **xoá sạch dữ liệu thật** |
 | `setSaveErrorHandler()` → toast | Mất mạng sẽ trông như đã lưu xong |
+| `rev` + `runTransaction` | Hai tab cùng mở, tab cũ ghi đè sạch việc tab kia làm |
+| Trong `migrateTxnsOut()`: ghi txns ra subcollection **trước**, gỡ khỏi `state` **sau** | Đảo thứ tự thì một lỗi mạng giữa chừng là mất sạch giao dịch |
+| `stripTxns()` trong `saveState()` | txns quay lại nằm trong state doc, hỏng đúng thứ vừa sửa |
+
+`saveState()` **bỏ qua write khi payload không đổi** (so JSON với lần ghi thành
+công gần nhất). Không có chốt này thì mỗi lần đổi tháng và mỗi lần mở app là một
+lần ghi lại toàn bộ state.
 
 ---
 
@@ -227,8 +262,7 @@ Hai chỗ dễ mất dữ liệu, đã xử lý — **đừng gỡ**:
   jars:        [{ id, accountId, name }],              // "category"
   openings:    { "2026-08": { jarId: amount } },       // Start theo từng tháng
   tags:        [{ id, name, color }],
-  txns:        [{ id, date:"YYYY-MM-DD", type:'expense'|'income'|'transfer',
-                  amount, jarId, fromJarId, toJarId, tagIds:[], note }],
+  txns:        [ … ],   // ⚠ KHÔNG lưu ở đây — xem dưới
   template:    [{ id, group:'basic'|'debt'|'save', name, amount, jarId, installmentId }],
   plans:       { "2026-09": { items, appliedAt, income, carried, allocated, remainder } },
   installments:[{ id, name, note, total, periods, per, start, jarId,
@@ -240,7 +274,27 @@ Hai chỗ dễ mất dữ liệu, đã xử lý — **đừng gỡ**:
 }
 ```
 
-Xem `sample-data.json` để có ví dụ đầy đủ.
+**`txns` là trường hợp đặc biệt.** Nó tồn tại trong `st` khi app đang chạy và
+trong file backup `.json`, nhưng **không** được ghi vào `ledger/state` —
+`saveState()` gỡ ra trước mỗi lần ghi. Nguồn thật là subcollection
+`users/{uid}/txns/{txnId}`, và `st.txns` chỉ giữ **tháng đang xem**:
+
+```js
+users/{uid}/txns/{txnId} = {
+  date:"YYYY-MM-DD", type:'expense'|'income'|'transfer',
+  amount, jarId, fromJarId, toJarId, tagIds:[], note,
+  source:'app'          // ai ghi; chừa chỗ cho client ngoài
+}
+// id là TÊN document, không lặp lại thành field bên trong
+```
+
+`normalizeTxn()` trong `lib/state.js` là cửa duy nhất giữa hai dạng. Nó ép
+`undefined` → `null` (Firestore từ chối cả document nếu có một field undefined,
+mà giao dịch bản cũ thiếu hẳn key `fromJarId`/`toJarId`) và nâng `tagId` đơn →
+mảng `tagIds`. Hàm pure, nằm ở `state.js` chứ không phải `storage.js` để test
+được mà không cần biến môi trường Firebase.
+
+Xem `sample-data.json` để có ví dụ đầy đủ (định dạng backup, có `txns`).
 
 ### Công thức dẫn xuất
 
@@ -312,7 +366,8 @@ Không áp vào progress bar.
 
 | Việc | Vì sao |
 |---|---|
-| **Không còn cách export dữ liệu** | *Download backup (.json)* đã bị bỏ khỏi UI. Đó từng là lưới an toàn duy nhất cho tình huống mất quyền vào tài khoản. Hàm `parseBackup()` và test của nó vẫn còn trong `lib/state.js`, nên khôi phục lại chỉ là thêm 2 nút |
+| ~~**Không còn cách export dữ liệu**~~ | ✅ Đã xong — ⚙ Settings → **Backup** có lại *Download backup* / *Restore from backup*. Bản backup gộp cả `txns` từ subcollection |
+| **Chặn ghi vào tháng đã chốt** | `openings[next]` đóng băng lúc chốt sổ. Giao dịch backdate vào tháng đã có trong `closes` làm số dư đầu tháng sau sai mà không báo gì. UI chưa chặn — mới chỉ ghi lại trong §10 |
 | **Xác minh email** | Tài khoản tạo xong dùng được ngay, `emailVerified` vẫn `false`. Nghĩa là gõ sai email khi đăng ký thì không nhận được link reset mật khẩu → mất quyền vào dữ liệu |
 | **Chỉ báo trạng thái sync** | Hiện không có gì cho biết "đã lưu chưa". Lỗi ghi có toast, nhưng lúc bình thường thì im lặng |
 | **Cài lên home screen (PWA)** | Đã thử Serwist rồi gỡ: Serwist chạy qua webpack plugin, Next 16 mặc định Turbopack, chưa tương thích (serwist#54). Và precache manifest không chứa document `/` nên reload offline vẫn ra trang lỗi. Cần cách khác |
@@ -387,10 +442,9 @@ Nếu có sửa `lib/ask.js`, **phải test tay từng hành động phá hoại
 
 - **8 nút xoá** — tag · giao dịch · dòng plan · trả góp · khoản cho vay ·
   hoàn tác kỳ đã nhận · category · tài khoản
-- **1 hành động còn lại** — Sign out (trong ⚙ → Account)
+- **2 hành động còn lại** — Sign out, và *Restore from backup* (ghi đè toàn bộ)
 
-Ba hành động ghi đè toàn bộ (*Restore from backup* · *Load sample data* ·
-*Erase everything*) đã bị bỏ khỏi UI, nên số call site giảm từ 11 xuống 9.
+*Load sample data* và *Erase everything* vẫn bỏ khỏi UI, nên còn 10 call site.
 
 ### 5 warning lint đang chấp nhận
 
@@ -445,11 +499,20 @@ mọi path khác    →  chặn hết
 
 ### Giới hạn cần biết
 
-- **1 document/người.** State ~20KB, giới hạn Firestore 1MB → đủ khoảng
-  **2.500–3.000 giao dịch (6–7 năm)**. Chạm ngưỡng thì mới cần tách `txns` thành
-  subcollection.
-- **Last-write-wins.** Dùng 1 người, không dùng cùng lúc nên chấp nhận được. Hai
-  thiết bị sửa đồng thời thì một bên bị ghi đè.
+- **Trần 1 MiB không còn là vấn đề.** `txns` đã tách thành subcollection; phần còn
+  lại trong `ledger/state` tăng ~1,08 KB/tháng → khoảng **75 năm**.
+- **Ghi đè chéo đã chặn, nhưng chỉ cho `state`.** Cờ `rev` + `runTransaction` bảo
+  vệ `ledger/state`. Hai thiết bị sửa **cùng một giao dịch** thì vẫn last-write-wins
+  trên đúng document đó — phạm vi thiệt hại giới hạn ở một giao dịch, không phải cả
+  sổ như trước.
+- **Đọc toàn bộ lịch sử tốn N document read.** Chỉ có Download backup làm việc này.
+  Đừng gọi `loadAllTxns()` trong luồng render. Báo cáo nhiều tháng nên dựa vào
+  rollup có sẵn trong `closes[ym]` / `openings[ym]`.
+- **Ghi vào tháng đã chốt làm sổ lệch âm thầm.** `openings[next]` là snapshot đóng
+  băng lúc chốt ([CloseMonth](src/components/screens/CloseMonth.jsx) `commit()`).
+  Giao dịch thêm vào tháng đã có trong `closes` sẽ đổi `jarStats` của tháng đó
+  nhưng **không** đổi số dư đầu tháng sau. UI hiện không chặn — bất kỳ đường ghi
+  nào từ ngoài vào (API, import) **phải** tự từ chối.
 - **Firestore yếu về truy vấn tổng hợp.** Nếu làm "trung bình trượt 3 tháng theo
   lọ" (§7) thì phải tính ở server rồi cache.
 - **Mất mạng là không ghi được** (đánh đổi có chủ ý của server-first).

@@ -169,6 +169,88 @@ khẩu / mất email = mất quyền vào dữ liệu. Đã nêu rủi ro trư�
 `parseBackup()` và 10 test của nó vẫn còn trong `lib/state.js`, nên khôi phục
 lại chỉ là thêm 2 nút.
 
+## Giai đoạn 8 — Tách `txns` khỏi document state
+
+Xuất phát từ một câu hỏi về trần 1 MiB của Firestore, nhưng đo thật thì trần
+không phải vấn đề gần nhất.
+
+### Số đo, không phải ước lượng
+
+Áp đúng công thức size của Firestore lên `legacy/sample-data.json`:
+
+| Chỉ số | Giá trị |
+|---|---|
+| Một giao dịch | **94 byte** (min 85 / max 116) — trong đó 38 byte là tên field lặp lại |
+| Phần cố định (accounts, jars, tags, template, installments, loans) | ~4,6 KB |
+| Phần tăng **mỗi tháng** (`plans` 923B + `openings` 85B + `closes` ~70B) | ~1,08 KB |
+
+Trần thật ≈ **9.000–10.000 giao dịch**, không phải 2.500–3.000 như README cũ
+ghi. Với 100 giao dịch/tháng là khoảng 8 năm.
+
+### Vì sao vẫn phải làm ngay, dù còn 8 năm
+
+Ba vấn đề nghiêm trọng hơn trần 1 MiB, và đã hiện hữu ở 32 giao dịch:
+
+1. **`setDoc` ghi đè cả document.** Hai tab cùng mở: tab load lúc 9h, tới 10h sửa
+   một thứ nhỏ → đè sạch mọi thay đổi tab kia làm từ 9h. Không lỗi, không cảnh
+   báo. Lập luận cũ *"không có cache offline nên không cần cờ `rev`"* chỉ đúng cho
+   thiết bị khôi phục từ cache, **không** đúng cho hai tab đang sống.
+2. **Mở app cũng ghi lại toàn bộ document.** `st` đi từ `null` → object sau khi
+   load, effect `saveState` kích hoạt. Chỉ đăng nhập thôi cũng tốn một full write.
+3. **Write amplification.** Năm thứ 3 với 100 giao dịch/tháng, document ~400 KB —
+   thêm một ly cà phê 25k là upload 400 KB.
+
+### Đã làm
+
+```
+users/{uid}/ledger/state   { st: <KHÔNG có txns>, rev, txnsV, updatedAt }
+users/{uid}/ledger/meta    { accounts, jars, tags }        ~700 byte
+users/{uid}/txns/{txnId}   một giao dịch = một document
+```
+
+- **Nạp theo tháng**, query khoảng `date` `[ym-01, ym-99]` — điều kiện một field
+  nên index tự động, **không cần composite index**. Cận trên là `-99` chứ không
+  phải `-31`: nếu có bản ghi ngày không đệm 0 thì `'2026-08-9' > '2026-08-31'`
+  theo thứ tự chuỗi, giao dịch đó sẽ biến mất khỏi màn hình.
+- `st.txns` vẫn tồn tại trong bộ nhớ, chỉ chứa tháng đang xem → **`derive.js` và
+  cả ba màn hình đọc không phải sửa dòng nào**, vẫn gọi `monthTxns(st, ym)`.
+- **Cờ `rev` + `runTransaction`** cho `ledger/state`. Lệch rev → huỷ ghi, App hiện
+  màn chặn bắt reload thay vì đè lên.
+- **`saveState()` bỏ qua write khi payload không đổi.** Một chốt giải quyết cả
+  write thừa lúc load lẫn write thừa mỗi lần đổi tháng.
+- **`ledger/meta`** — bản chiếu accounts/jars/tags, ghi cùng transaction với state.
+- **Rules không phải sửa dòng nào**: `users/{uid}/{document=**}` đã phủ sẵn.
+
+### Đưa lại *Download backup* trước khi migrate
+
+Nút này bị gỡ ở giai đoạn 7 và chủ dự án đã chấp nhận rủi ro *"quên mật khẩu =
+mất data"*. Nhưng migration là thao tác **ghi lại dữ liệu tài chính thật**, và
+đánh đổi lúc đó không bao gồm *"không có đường lùi khi migration hỏng"*. Nên đưa
+lại trước, chạy một lần, rồi mới tách. Bản backup gộp cả `txns` từ subcollection —
+nếu không nó xuất ra sổ thiếu giao dịch, tệ hơn là không có backup.
+
+### Thứ tự trong `migrateTxnsOut()` — đừng đảo
+
+1. ghi txns ra subcollection → 2. mới gỡ txns khỏi `ledger/state`
+
+Bước 1 hỏng giữa chừng thì hàm ném lỗi trước khi tới bước 2, state cũ còn nguyên,
+lần load sau chạy lại. Ghi lại cùng `txnId` là idempotent nên không sinh bản
+trùng. Đảo thứ tự thì một lỗi mạng là mất sạch giao dịch.
+
+### Đã kiểm trên Firestore thật
+
+Thêm giao dịch → reload thấy còn (đúng là ở subcollection) → sang tháng khác thì
+mất, quay lại thì có → xoá. Tag round-trip đúng. Đếm request thật bằng hook
+XHR/fetch: **đổi tháng = 3 `Listen`, 0 `Write`**; thêm/xoá tag = `Listen` (query
+`array-contains`) + đúng 1 `Write`.
+
+### Còn treo
+
+`openings[next]` là snapshot đóng băng lúc chốt sổ. Giao dịch backdate vào tháng
+đã có trong `closes` đổi `jarStats` tháng đó nhưng **không** đổi số dư đầu tháng
+sau → sổ lệch âm thầm. UI chưa chặn. Bất kỳ đường ghi nào từ ngoài vào **phải**
+tự từ chối.
+
 ## Những hướng đã cân nhắc và loại bỏ
 
 | Ý tưởng | Lý do loại |
@@ -181,3 +263,7 @@ lại chỉ là thêm 2 nút.
 | Vite thay vì Next.js | Gọn hơn, nhưng tính năng tương lai cần server cho secret key. Với Vite phải dựng Cloud Functions riêng + cần Blaze plan trả phí |
 | PWA bằng Serwist | Đã cài rồi **gỡ bỏ**. Serwist chạy qua webpack plugin, Next 16 mặc định Turbopack → build lỗi, phải hạ xuống `next build --webpack`. Tệ hơn: precache manifest **không chứa document `/`**, nên tắt server rồi reload vẫn ra trang lỗi chứ không chạy offline. Nếu làm lại, kiểm cái đó trước |
 | Chuyển TypeScript ngay ở bước 1 | Gộp với việc tách file thì lỗi phát sinh không biết do đâu. Đã để `tsconfig.json` với `allowJs: true` sẵn, file vẫn `.jsx` — convert dần từ `lib/` được |
+| Collection tạm `shortcutExpenseLogs` cho log ghi từ ngoài | Buộc phải viết code reconcile (đọc staging → append vào sổ → xoá staging), và chính cửa sổ merge đó là nơi race condition sống. Một collection `txns` + field `source`/`status` cho cùng kết quả với một query path, không migration, và giao dịch giữ nguyên id từ lúc sinh ra |
+| `transactions/{id}` phẳng ở root | Đặt dưới `users/{uid}/txns/` thì `firestore.rules` hiện tại phủ sẵn. Ở root phải viết rule mới và tự mang `ownerId` vào mọi query — thêm bề mặt lỗi bảo mật, không được gì |
+| Normalize luôn accounts/jars/tags thành collection riêng | Chúng có vài chục phần tử và được đọc ở mọi render. Tách ra chỉ đổi 1 read thành N read. Phần còn lại của `ledger/state` tăng ~1,08 KB/tháng ≈ 75 năm, không cần đụng tới |
+| Thêm field `ym` vào txn để query theo tháng | Query khoảng trên chính `date` cho cùng kết quả, cùng index tự động, mà không phải giữ đồng bộ một field dư thừa |
