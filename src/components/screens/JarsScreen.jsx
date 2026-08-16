@@ -62,6 +62,9 @@ export function JarsScreen({st,set,ym,toast,openTx,catId,setCatId,openClose}){
   const [newCat,setNewCat]=useState('');
   const s=useMemo(()=>monthSummary(st,ym),[st,ym]);
   const pageJar=catId?st.jars.find(x=>x.id===catId):null;
+  /* Sheet che gần hết màn trên mobile nên mất dấu là đang thêm vào tài khoản
+     nào — phải hiện rõ trong sheet. */
+  const jarFormAcc=jarForm?st.accounts.find(a=>a.id===jarForm.accountId):null;
 
   const toggle=id=>setOpenAcc(o=>o.includes(id)?o.filter(x=>x!==id):[...o,id]);
 
@@ -253,6 +256,18 @@ export function JarsScreen({st,set,ym,toast,openTx,catId,setCatId,openClose}){
         set(d=>{d.jars.push({id:uid(),accountId:jarForm.accountId,name:jarForm.name.trim()})});
         setJarForm(null);toast('Category added');
       }}>Add category</button>}>
+      <Field label="Account">
+        <div style={{display:'flex',alignItems:'center',gap:10}}>
+          <div className="dot" style={{background:accColor(jarFormAcc),color:'#fff'}}>
+            <I n={accIcon(jarFormAcc)} s={17}/></div>
+          <div>
+            <div style={{fontWeight:600}}>{jarFormAcc?jarFormAcc.name:'—'}</div>
+            <div className="row-s">
+              {st.jars.filter(j=>j.accountId===jarForm.accountId).length} categories already
+            </div>
+          </div>
+        </div>
+      </Field>
       <Field label="Category name"><input className="inp" autoFocus placeholder="e.g. Food"
         value={jarForm.name} onChange={e=>setJarForm(s=>({...s,name:e.target.value}))}/></Field>
     </Sheet>}

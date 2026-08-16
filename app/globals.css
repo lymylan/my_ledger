@@ -180,6 +180,20 @@ button{cursor:pointer;border:none;background:none;padding:0}
 .field > label{display:block;font-size:12px;font-weight:600;color:var(--ink2);margin-bottom:5px}
 .inp{width:100%;background:var(--card);border:1px solid var(--line);border-radius:11px;padding:11px 12px;font-size:15px;outline:none}
 .inp:focus{border-color:var(--indigo);box-shadow:0 0 0 3px var(--indigo-soft)}
+/* iOS Safari TỰ PHÓNG TO cả trang khi focus vào input có font-size < 16px, và
+   KHÔNG tự thu lại khi đóng modal — màn hình kẹt ở trạng thái zoom lệch.
+   Cách chữa duy nhất không phá accessibility là để >= 16px (đừng dùng
+   maximum-scale=1, nó chặn người dùng tự phóng to).
+
+   Dòng `button,input,select,textarea{font:inherit}` ở trên khiến mọi control
+   kế thừa 15px của body, nên bắt cả bằng element selector để input viết sau
+   này cũng được bảo vệ. .amt-field (26px) và .big-amt (40px) là class nên
+   thắng element selector, giữ nguyên cỡ.
+
+   pointer:coarse -> chỉ áp trên thiết bị cảm ứng, desktop giữ đúng 15px. */
+@media (pointer: coarse){
+  .inp, input, select, textarea{font-size:16px}
+}
 select.inp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5L6 6.5L11 1.5' stroke='%23868DA1' stroke-width='1.8' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
   background-repeat:no-repeat;background-position:right 12px center;padding-right:32px}
 .big-amt{width:100%;border:none;background:none;outline:none;text-align:center;font-family:var(--f-disp);
