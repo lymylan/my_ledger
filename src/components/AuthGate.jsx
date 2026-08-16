@@ -92,8 +92,8 @@ export function AuthGate() {
       </p>
 
       <p className="mut" style={{ textAlign: 'center', fontSize: 12, marginTop: 26, lineHeight: 1.5 }}>
-        Your ledger syncs through your account. Keep a copy with
-        <br />⚙ → Download backup (.json) now and then.
+        Your ledger syncs through your account, so it follows you
+        <br />to every device you sign in on.
       </p>
     </div>
   );

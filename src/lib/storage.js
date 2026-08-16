@@ -11,11 +11,36 @@ const stateRef = () => {
   return doc(db, 'users', u.uid, 'ledger', 'state');
 };
 
+/* Firestore không tự bỏ cuộc khi mạng treo — nó cứ retry. Không có mốc dừng thì
+   app mắc ở màn Loading vô thời hạn mà người dùng không biết vì sao. */
+const LOAD_TIMEOUT_MS = 12000;
+
+function withTimeout(p, ms) {
+  let t;
+  const timeout = new Promise((_, reject) => {
+    t = setTimeout(() => reject(
+      Object.assign(new Error('Took too long to reach the server.'), { code: 'app/timeout' })
+    ), ms);
+  });
+  return Promise.race([p, timeout]).finally(() => clearTimeout(t));
+}
+
 export async function loadState() {
   if (!auth.currentUser) return null;
-  const snap = await getDoc(stateRef());
+  const snap = await withTimeout(getDoc(stateRef()), LOAD_TIMEOUT_MS);
   if (!snap.exists()) return null;
   return snap.data().st ?? null;
+}
+
+/* Một chỗ duy nhất dịch lỗi Firestore sang câu người đọc được — dùng cho cả
+   màn báo lỗi khi load và toast khi ghi hỏng. */
+export function readableStoreError(e) {
+  const code = (e && e.code) || '';
+  const msg = (e && e.message) || '';
+  if (code === 'app/timeout') return 'Took too long to reach the server. Check your connection.';
+  if (code === 'permission-denied') return 'Permission denied for this account.';
+  if (/offline|unavailable|network/i.test(code + msg)) return 'You appear to be offline.';
+  return msg || 'Unknown error.';
 }
 
 /* ---- ghi có debounce ----------------------------------------------------

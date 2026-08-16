@@ -23,6 +23,32 @@ export function Brand({ size = 26, gap = 8 }) {
   );
 }
 
+/* Màn báo lỗi thay cho việc mắc ở "Loading…" vô thời hạn.
+   Nguyên tắc: khi ở đây, app KHÔNG ghi gì lên Firestore — vì chưa đọc được dữ
+   liệu thật, ghi lên là có nguy cơ đè mất sổ. */
+export function ErrorScreen({ title, message, hint, onRetry, retryLabel = 'Try again', extra }) {
+  return (
+    <div style={{ maxWidth: 380, margin: '0 auto', paddingTop: 'max(10vh, 48px)', textAlign: 'center' }}>
+      <div style={{
+        width: 46, height: 46, borderRadius: 14, margin: '0 auto 14px',
+        background: 'var(--out-soft)', color: 'var(--out)', display: 'grid', placeItems: 'center',
+      }}>
+        <I n="x" s={22} />
+      </div>
+      <h2 style={{
+        fontFamily: 'var(--f-disp)', fontSize: 17, fontWeight: 800,
+        letterSpacing: '-.02em', margin: '0 0 6px',
+      }}>{title}</h2>
+      <p className="mut" style={{ fontSize: 13, margin: '0 0 4px', lineHeight: 1.5 }}>{message}</p>
+      {hint && <p className="mut" style={{ fontSize: 12.5, margin: '0 0 18px', lineHeight: 1.5 }}>{hint}</p>}
+      <div style={{ marginTop: 18 }}>
+        <button className="btn pri blk" onClick={onRetry}>{retryLabel}</button>
+        {extra}
+      </div>
+    </div>
+  );
+}
+
 /* Ô mật khẩu có nút con mắt. Dùng ở màn đăng nhập và form đổi mật khẩu. */
 export function PasswordInput({ id, value, onChange, placeholder, autoComplete, autoFocus }) {
   const [show, setShow] = useState(false);

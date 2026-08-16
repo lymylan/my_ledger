@@ -13,7 +13,7 @@ import { JarsScreen } from './components/screens/JarsScreen';
 import { LoansPage } from './components/screens/LoansPage';
 import { PlanSetup } from './components/screens/PlanSetup';
 import { ReportScreen } from './components/screens/ReportScreen';
-import { Brand, Sheet } from './components/ui';
+import { Brand, ErrorScreen, Sheet } from './components/ui';
 import { ask, setAsk } from './lib/ask';
 import { loanStat } from './lib/derive';
 import { dstr, mLabelLong, money, shiftYm, ymOf } from './lib/format';
@@ -21,6 +21,7 @@ import { auth } from './lib/firebase';
 import { emptyState, migrate } from './lib/state';
 import {
   loadState, saveState, flushSave, cancelPendingSave, setSaveErrorHandler,
+  readableStoreError,
 } from './lib/storage';
 
 const TABS=[
@@ -45,6 +46,8 @@ export default function App(){
   const [planPage,setPlanPage]=useState(false);
   const [loanPage,setLoanPage]=useState(false);
   const [accPage,setAccPage]=useState(false);
+  const [loadError,setLoadError]=useState(null);
+  const [retry,setRetry]=useState(0);
   const tt=useRef(null);
 
   const set=fn=>setSt(prev=>{const d=JSON.parse(JSON.stringify(prev));fn(d);return d});
@@ -57,6 +60,7 @@ export default function App(){
      màn đăng nhập một nhịp rồi mới vào app. */
   useEffect(()=>onAuthStateChanged(auth,u=>{
     setUser(u||null);
+    setLoadError(null);
     if(!u){ cancelPendingSave(); setSt(null) }   // đăng xuất: đừng để write đang chờ ghi tiếp
   }),[]);
 
@@ -73,12 +77,12 @@ export default function App(){
       }catch(e){
         /* KHÔNG rơi về emptyState ở đây: nếu Firestore lỗi mà ta hiện sổ trống
            thì effect saveState bên dưới sẽ ghi cái sổ trống đó lên, xoá sạch dữ
-           liệu thật. Để `st` là null (màn Loading) và báo lỗi. */
-        if(!cancelled) toast('Could not load your ledger: '+(e.message||'unknown'));
+           liệu thật. Giữ st=null và hiện màn báo lỗi có nút thử lại. */
+        if(!cancelled) setLoadError(e);
       }
     })();
     return()=>{cancelled=true};
-  },[user]);
+  },[user,retry]);
 
   useEffect(()=>{if(st)saveState(st)},[st]);
   useEffect(()=>{setAsk((msg,onOk,okLabel)=>setBox({msg,onOk,okLabel:okLabel||'Delete'}));
@@ -87,12 +91,7 @@ export default function App(){
   /* Ghi thất bại phải nhìn thấy được. Im lặng .catch() thì mất mạng sẽ trông
      như đã lưu xong — rất tệ với sổ chi tiêu. */
   useEffect(()=>{
-    setSaveErrorHandler(e=>{
-      const c=(e&&e.code)||'', m=(e&&e.message)||'';
-      toast(c==='permission-denied' ? 'Not saved — permission denied.'
-        : /offline|unavailable|network/i.test(c+m) ? 'Not saved — you are offline.'
-        : 'Not saved: '+(m||'unknown error'));
-    });
+    setSaveErrorHandler(e=>toast('Not saved — '+readableStoreError(e)));
     return()=>setSaveErrorHandler(null);
   },[]);
 
@@ -119,7 +118,14 @@ export default function App(){
 
   if(user===undefined)return <div className="empty" style={{paddingTop:120}}>Loading…</div>;
   if(!user)return <AuthGate/>;
-  if(!st)return <div className="empty" style={{paddingTop:120}}>Loading…</div>;
+  if(loadError)return <ErrorScreen
+    title="Could not load your ledger"
+    message={readableStoreError(loadError)}
+    hint="Nothing was changed. Your data is still on the server — the app just could not read it this time."
+    onRetry={()=>{setLoadError(null);setRetry(n=>n+1)}}
+    extra={<button className="lnk" style={{display:'block',margin:'14px auto 0'}}
+      onClick={doSignOut}>Sign out instead</button>}/>;
+  if(!st)return <div className="empty" style={{paddingTop:120}}>Loading your ledger…</div>;
 
   const catJar=catId?st.jars.find(x=>x.id===catId):null;
   const sub=!!catJar||closing||planPage||loanPage||accPage;
