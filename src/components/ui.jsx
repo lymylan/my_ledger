@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { ask } from '../lib/ask';
 import { TAG_COLORS, suggestAmounts } from '../lib/constants';
 import { jarShort, tagOf } from '../lib/derive';
@@ -20,6 +20,41 @@ export function Brand({ size = 26, gap = 8 }) {
       </span>
       My Ledger
     </span>
+  );
+}
+
+/* Ô nhập + nút Add, thêm liên tiếp vào danh sách ngay bên dưới.
+   Dùng ở: tag trong TxSheet, và Categories trong sheet Add account.
+
+   Điểm mấu chốt là GIỮ FOCUS sau khi thêm. Mặc định bấm nút sẽ chuyển focus
+   sang nút -> iOS đóng bàn phím -> muốn nhập tiếp phải chạm lại ô. Chặn bằng
+   hai lớp:
+     1. preventDefault ở onMouseDown  -> focus không rời ô ngay từ đầu
+     2. focus() lại trong onClick     -> lớp dự phòng
+
+   focus() phải gọi ĐỒNG BỘ trong user gesture. Đặt trong setTimeout hoặc sau
+   await thì iOS sẽ không mở lại bàn phím. */
+export function InlineAdd({ placeholder, onAdd, label = 'Add', children }) {
+  const [text, setText] = useState('');
+  const ref = useRef(null);
+  const ok = text.trim().length > 0;
+
+  const commit = () => {
+    if (!ok) return;
+    onAdd(text.trim());
+    setText('');
+    if (ref.current) ref.current.focus();
+  };
+
+  return (
+    <div style={{ display: 'flex', gap: 6 }}>
+      <input ref={ref} className="inp" placeholder={placeholder} value={text}
+        onChange={e => setText(e.target.value)}
+        onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); commit() } }} />
+      <button className="btn gho sm" disabled={!ok}
+        onMouseDown={e => e.preventDefault()} onClick={commit}>{label}</button>
+      {children}
+    </div>
   );
 }
 
@@ -132,14 +167,13 @@ export function MoneyInput({value,onChange,placeholder='0',autoFocus,boxed,cente
   return <>{field}{children}{foot}</>;
 }
 export function TagPicker({st,set,value,onChange}){
-  const [newTag,setNewTag]=useState('');
   const [mgr,setMgr]=useState(false);
   const sel=value||[];
   const toggle=id=>onChange(sel.includes(id)?sel.filter(x=>x!==id):[...sel,id]);
   const add=name=>{
     const id=uid();
     set(d=>{d.tags.push({id,name:name.trim(),color:TAG_COLORS[d.tags.length%TAG_COLORS.length]})});
-    onChange([...sel,id]); setNewTag('');
+    onChange([...sel,id]);
   };
   const del=t=>ask('Delete tag "'+t.name+'"? It will be removed from every transaction and loan using it.',()=>{
     set(d=>{
@@ -156,15 +190,13 @@ export function TagPicker({st,set,value,onChange}){
           onClick={()=>toggle(t.id)}>{t.name}</button>)}
       {st.tags.length===0&&<span className="mut" style={{fontSize:13}}>No tags yet.</span>}
     </div>
-    <div style={{display:'flex',gap:6,marginTop:8}}>
-      <input className="inp" placeholder="New tag…" value={newTag}
-        onChange={e=>setNewTag(e.target.value)}
-        onKeyDown={e=>{if(e.key==='Enter'&&newTag.trim()){e.preventDefault();add(newTag)}}}/>
-      <button className="btn gho sm" disabled={!newTag.trim()} onClick={()=>add(newTag)}>Add</button>
-      <button className="btn gho sm" aria-label="Manage tags" title="Manage tags"
-        onClick={()=>setMgr(m=>!m)}
-        style={mgr?{borderColor:'var(--indigo)',color:'var(--indigo)',background:'var(--indigo-soft)'}:null}>
-        <I n="cog" s={15}/></button>
+    <div style={{marginTop:8}}>
+      <InlineAdd placeholder="New tag…" onAdd={add}>
+        <button className="btn gho sm" aria-label="Manage tags" title="Manage tags"
+          onMouseDown={e=>e.preventDefault()} onClick={()=>setMgr(m=>!m)}
+          style={mgr?{borderColor:'var(--indigo)',color:'var(--indigo)',background:'var(--indigo-soft)'}:null}>
+          <I n="cog" s={15}/></button>
+      </InlineAdd>
     </div>
     {mgr&&<div className="card" style={{marginTop:8}}>
       {st.tags.map(t=>(

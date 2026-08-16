@@ -4,7 +4,7 @@ import { ACC_COLORS, ACC_ICONS, accColor, accIcon } from '../../lib/constants';
 import { monthSummary, monthTxns } from '../../lib/derive';
 import { dstr, mLabelLong, money, pad, shiftYm, uid, ymOf } from '../../lib/format';
 import { I } from '../Icon';
-import { Field, MoneyInput, Sheet, TxRow, Vessel } from '../ui';
+import { Field, InlineAdd, MoneyInput, Sheet, TxRow, Vessel } from '../ui';
 
 export function CatPage({st,j,ym,d,onEdit,openTx}){
   const acc=st.accounts.find(x=>x.id===j.accountId);
@@ -59,7 +59,6 @@ export function JarsScreen({st,set,ym,toast,openTx,catId,setCatId,openClose}){
   const [edit,setEdit]=useState(null);
   const [accForm,setAccForm]=useState(null);
   const [jarForm,setJarForm]=useState(null);
-  const [newCat,setNewCat]=useState('');
   const s=useMemo(()=>monthSummary(st,ym),[st,ym]);
   const pageJar=catId?st.jars.find(x=>x.id===catId):null;
   /* Sheet che gần hết màn trên mobile nên mất dấu là đang thêm vào tài khoản
@@ -89,7 +88,7 @@ export function JarsScreen({st,set,ym,toast,openTx,catId,setCatId,openClose}){
     </div>
 
     <div className="sec-h"><h2>Accounts &amp; categories</h2>
-      <button className="act" onClick={()=>{setNewCat('');setAccForm({name:'',kind:'bank',color:ACC_COLORS[0],icon:'bank',cats:[]})}}>+ Add account</button></div>
+      <button className="act" onClick={()=>{setAccForm({name:'',kind:'bank',color:ACC_COLORS[0],icon:'bank',cats:[]})}}>+ Add account</button></div>
 
     {st.accounts.length===0 && <div className="card empty"><b>No accounts yet</b>
       Add a bank account or cash wallet to start splitting money into categories.</div>}
@@ -223,15 +222,8 @@ export function JarsScreen({st,set,ym,toast,openTx,catId,setCatId,openClose}){
       {!accForm.id && <>
         <div className="hr"/>
         <Field label="Categories">
-          <div style={{display:'flex',gap:6}}>
-            <input className="inp" placeholder="e.g. Food" value={newCat}
-              onChange={e=>setNewCat(e.target.value)}
-              onKeyDown={e=>{if(e.key==='Enter'&&newCat.trim()){e.preventDefault();
-                setAccForm(s=>({...s,cats:[...(s.cats||[]),newCat.trim()]}));setNewCat('')}}}/>
-            <button className="btn gho sm" disabled={!newCat.trim()}
-              onClick={()=>{setAccForm(s=>({...s,cats:[...(s.cats||[]),newCat.trim()]}));setNewCat('')}}>
-              Add</button>
-          </div>
+          <InlineAdd placeholder="e.g. Food"
+            onAdd={n=>setAccForm(s=>({...s,cats:[...(s.cats||[]),n]}))}/>
 
           {(accForm.cats||[]).length>0 && <div className="card" style={{marginTop:8}}>
             {accForm.cats.map((c,i)=>(
