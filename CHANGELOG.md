@@ -169,7 +169,7 @@ khẩu / mất email = mất quyền vào dữ liệu. Đã nêu rủi ro trư�
 `parseBackup()` và 10 test của nó vẫn còn trong `lib/state.js`, nên khôi phục
 lại chỉ là thêm 2 nút.
 
-## Giai đoạn 8 — Tách `txns` khỏi document state
+## Giai đoạn 9 — Tách `txns` khỏi document state
 
 Xuất phát từ một câu hỏi về trần 1 MiB của Firestore, nhưng đo thật thì trần
 không phải vấn đề gần nhất.
@@ -250,6 +250,45 @@ XHR/fetch: **đổi tháng = 3 `Listen`, 0 `Write`**; thêm/xoá tag = `Listen` 
 đã có trong `closes` đổi `jarStats` tháng đó nhưng **không** đổi số dư đầu tháng
 sau → sổ lệch âm thầm. UI chưa chặn. Bất kỳ đường ghi nào từ ngoài vào **phải**
 tự từ chối.
+
+## Giai đoạn 10 — Sắp xếp lại accounts & categories bằng kéo-thả
+
+Nút ↑↓ cạnh tiêu đề *Accounts & categories* bật chế độ sắp xếp.
+
+**Không thêm field `order`.** Thứ tự hiển thị vốn đã là thứ tự mảng `st.accounts`
+/ `st.jars`, nên sắp xếp = sắp lại mảng và tự bền qua `saveState()`. Thứ tự đó
+hiện ra luôn ở `JarSelect`, `CloseMonth`, và `ledger/meta` (ghi cùng transaction
+với state).
+
+**Category sắp trong account của chính nó.** `d.jars` là mảng phẳng trộn mọi
+account, nên thay TẠI CHỖ đúng các vị trí account đó đang chiếm, thay vì gom lại
+cuối mảng — gom lại sẽ đổi thứ tự tương đối category của các account khác.
+
+**Chế độ sắp xếp dựng lại danh sách ở dạng gọn** (bỏ số tiền, vessel, nút sửa,
+luôn mở hết category). Không chỉ cho đỡ nhiễu: nó khiến không thể vừa kéo vừa bấm
+nhầm vào chi tiết category.
+
+### `useDragList` — tự viết, và vì sao từng lựa chọn
+
+| Quyết định | Lý do |
+|---|---|
+| Pointer Events, **không** HTML5 drag-and-drop | `dragstart`/`dragover` không bắn trên touch, mà app này mobile-first |
+| Không thêm thư viện DnD | deps chỉ có firebase/next/react; thư viện đủ dùng nào cũng nặng hơn cả tính năng |
+| `touch-action:none` trên `.grip` | Không có nó thì Safari iOS cuộn trang thay vì kéo |
+| `:scope > [data-di]` khi đo rect | List category LỒNG trong list account; không scope thì phép đo của account nhặt luôn dòng category |
+| `to` lưu trong ref, không đọc state lúc thả | `pointerup` có thể xảy ra cùng frame với `pointermove` cuối, khi đó state chưa cập nhật |
+| Container tìm bằng `closest('[data-dl]')` từ event | Ban đầu dùng ref rồi callback ref, cả hai đều bị `react-hooks/refs` của React Compiler chặn ("Cannot access refs during render"). Tìm từ event thì không cần ref, mà còn gọn hơn: nơi gọi khỏi phải nhớ gắn ref |
+| Dòng đang kéo nổi lên **tại chỗ** + vạch đích, không đi theo ngón tay | Không cần transform → bóng không bị `.card{overflow:hidden}` cắt, và dòng cao thấp khác nhau (card account vs dòng category) đều xử lý được. Kiểu "đẩy các dòng ở giữa" đòi chiều cao đều nhau |
+| `AccountReorderCard` là component ở module scope | Cần `useDragList` riêng cho category của nó, mà hook không gọi được trong `.map()`. Đúng luôn rule `react/no-unstable-nested-components` |
+
+### Verify trên dev server
+
+Kéo TPBank lên đầu → 2 category của nó đi theo, các account khác không xáo. Kéo
+*TPB Saving 3* lên trên *TPB Quỹ để dành* → đúng, và category của Techcombank /
+Vietcombank / TPB Saving giữ nguyên thứ tự. Reload: thứ tự còn nguyên. Dropdown
+*Deduct from category* đọc ra đúng thứ tự mới.
+
+34 test pass · build OK · lint 0 error (đúng 5 warning có sẵn).
 
 ## Những hướng đã cân nhắc và loại bỏ
 

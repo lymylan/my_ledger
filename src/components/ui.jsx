@@ -252,3 +252,101 @@ export function TxRow({st,t,onClick}){
     </button>
   );
 }
+
+/* ---- reorder bằng kéo-thả ------------------------------------------------
+
+   Tự viết chứ không thêm thư viện: deps của project chỉ có firebase/next/react,
+   và mọi thư viện DnD đủ dùng đều nặng hơn cả tính năng này.
+
+   Dùng Pointer Events, KHÔNG dùng HTML5 drag-and-drop: dragstart/dragover không
+   bắn trên touch, mà app này mobile-first. Pointer events cho cả chuột và ngón
+   tay bằng một đường code.
+
+   Ba điểm dễ sai, đã xử lý:
+
+   1. `:scope > [data-di]` chứ không phải `[data-di]`. Danh sách category nằm
+      LỒNG trong danh sách account, querySelectorAll không scope sẽ nhặt luôn các
+      dòng category vào phép đo của list account.
+   2. `to` lưu trong ref, không đọc từ state trong lúc thả. pointerup có thể xảy
+      ra cùng frame với pointermove cuối, khi đó state chưa kịp cập nhật.
+   3. `setPointerCapture` trên tay cầm, nên pointermove/up vẫn tới đúng nơi kể cả
+      khi ngón tay đi ra ngoài phần tử. Kèm `touch-action:none` trên .grip —
+      không có nó thì Safari iOS cuộn trang thay vì kéo.
+
+   Đo rect MỘT LẦN lúc bắt đầu kéo. Thứ tự thật chỉ đổi khi thả, nên rect không
+   bị lệch giữa đường. Đổi lại phải tự vẽ vạch đích — xem .dl-row.drop-* trong
+   globals.css. Cách này chịu được dòng cao thấp khác nhau (card account cao khác
+   dòng category), thứ mà kiểu "đẩy các dòng ở giữa" không làm được. */
+export function useDragList(ids, onReorder) {
+  const [drag, setDrag] = useState(null);   // {from,to} — chỉ để render
+  const geo = useRef(null);
+
+  const start = (e, from) => {
+    if (e.button !== undefined && e.button !== 0) return;   // chỉ chuột trái
+    /* Container tìm từ chính event, KHÔNG qua ref. Vừa gọn hơn (hook không cần
+       ref cho container, nơi gọi không cần nhớ gắn) vừa tránh
+       react-hooks/refs — React Compiler chặn chuyền ref qua thuộc tính khi render.
+       closest() dừng ở container GẦN NHẤT, nên list category lồng trong list
+       account vẫn tự tìm đúng của mình. */
+    const box = e.currentTarget.closest('[data-dl]');
+    if (!box) return;
+    e.preventDefault();
+    e.stopPropagation();                                    // list lồng nhau
+    const rects = [...box.querySelectorAll(':scope > [data-di]')]
+      .map(el => el.getBoundingClientRect());
+    if (rects.length < 2) return;                           // 0-1 phần tử: khỏi kéo
+    geo.current = { rects, startY: e.clientY, from, to: from };
+    setDrag({ from, to: from });
+    try { e.currentTarget.setPointerCapture(e.pointerId) } catch { /* không sao */ }
+  };
+
+  const move = e => {
+    const g = geo.current;
+    if (!g) return;
+    const c = g.rects[g.from].top + g.rects[g.from].height / 2 + (e.clientY - g.startY);
+    const last = g.rects.length - 1;
+    let to = g.from;
+    if (c < g.rects[0].top) to = 0;
+    else if (c > g.rects[last].bottom) to = last;
+    else for (let i = 0; i <= last; i++) {
+      if (c >= g.rects[i].top && c <= g.rects[i].bottom) { to = i; break }
+    }
+    if (to === g.to) return;
+    g.to = to;
+    setDrag(d => (d ? { ...d, to } : d));
+  };
+
+  const end = () => {
+    const g = geo.current;
+    geo.current = null;
+    setDrag(null);
+    if (!g || g.to === g.from) return;
+    const next = [...ids];
+    next.splice(g.to, 0, next.splice(g.from, 1)[0]);
+    onReorder(next);
+  };
+
+  /* Vạch đích nằm ở cạnh trên khi kéo lên, cạnh dưới khi kéo xuống — khớp với
+     ngữ nghĩa "thả vào đúng ô đang trỏ tới". */
+  const rowClass = i => {
+    if (!drag || drag.to === drag.from) return 'dl-row';
+    if (i === drag.from) return 'dl-row dragging';
+    if (i !== drag.to) return 'dl-row';
+    return 'dl-row ' + (drag.to < drag.from ? 'drop-before' : 'drop-after');
+  };
+
+  return {
+    box: { 'data-dl': '' },
+    active: !!drag,
+    /* `cls` để gộp class sẵn có của phần tử (ví dụ 'card') — spread props sau
+       className thì className bị ghi đè mất. */
+    row: (i, cls) => ({ 'data-di': '', className: (cls ? cls + ' ' : '') + rowClass(i) }),
+    handle: i => ({
+      className: 'grip', role: 'button', tabIndex: -1, 'aria-hidden': 'true',
+      onPointerDown: e => start(e, i),
+      onPointerMove: move,
+      onPointerUp: end,
+      onPointerCancel: end,
+    }),
+  };
+}

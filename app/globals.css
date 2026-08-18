@@ -301,3 +301,42 @@ table.t td.r,table.t th.r{text-align:right}
 }
 @media (prefers-reduced-motion:reduce){*{animation-duration:.01ms!important;transition-duration:.01ms!important}}
 :focus-visible{outline:2px solid var(--indigo);outline-offset:2px;border-radius:6px}
+
+/* ---------- reorder mode (JarsScreen) ---------- */
+/* Nút bật/tắt trong .sec-h. align-self:center vì .sec-h dùng align-items:baseline,
+   icon căn theo baseline sẽ lệch xuống. */
+.sec-h .sec-ic{margin-left:auto;align-self:center;width:28px;height:28px;border-radius:999px;
+  display:grid;place-items:center;color:var(--ink2);border:1px solid var(--line);background:var(--card)}
+.sec-h .sec-ic:hover{background:var(--line2)}
+.sec-h .sec-ic.on{background:var(--indigo);border-color:var(--indigo);color:#fff}
+/* Đè margin-left:auto của .act khi nó đứng sau nút icon — nếu không thì hai
+   phần tử auto-margin chia nhau khoảng trống và nút icon không sát phải. */
+.sec-h .sec-ic + .act{margin-left:10px}
+
+.dl-row{position:relative}
+/* Dòng đang kéo nổi lên TẠI CHỖ, không đi theo ngón tay — vạch đích mới là thứ
+   cho biết nó sẽ hạ xuống đâu. Nhờ vậy không cần transform, nên không bị
+   .card{overflow:hidden} cắt mất bóng, và dòng cao thấp khác nhau đều ổn. */
+.dl-row.dragging{z-index:20;background:var(--card);border-radius:var(--r-s);
+  box-shadow:0 10px 24px rgba(20,22,31,.16)}
+.card.dl-row.dragging{border-radius:var(--r)}
+/* Vạch đích. Vẽ bằng ::before/::after nên không chen vào layout — dòng không
+   nhảy khi vạch xuất hiện. */
+.dl-row.drop-before::before,
+.dl-row.drop-after::after{content:'';position:absolute;left:8px;right:8px;height:2px;
+  background:var(--indigo);border-radius:2px;z-index:10}
+.dl-row.drop-before::before{top:-1px}
+.dl-row.drop-after::after{bottom:-1px}
+
+/* touch-action:none là BẮT BUỘC: không có nó Safari iOS cuộn trang thay vì kéo. */
+.grip{flex:none;width:34px;height:34px;display:grid;place-items:center;color:var(--muted);
+  cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none}
+.grip:active{cursor:grabbing;color:var(--indigo)}
+
+.ro-acc{display:flex;align-items:center;gap:10px;padding:11px 8px 11px 4px}
+.ro-acc .row-t{font-size:15px;font-weight:700;letter-spacing:-.015em}
+.ro-cat{display:flex;align-items:center;gap:10px;padding:9px 12px 9px 22px;
+  border-top:1px solid var(--line2)}
+.ro-cat .row-t{font-size:14px;font-weight:600}
+.ro-hint{padding:9px 14px 9px 26px;border-top:1px solid var(--line2);
+  font-size:12px;color:var(--muted)}

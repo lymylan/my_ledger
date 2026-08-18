@@ -4,7 +4,7 @@ import { ACC_COLORS, ACC_ICONS, accColor, accIcon } from '../../lib/constants';
 import { monthSummary, monthTxns } from '../../lib/derive';
 import { dstr, mLabelLong, money, pad, shiftYm, uid, ymOf } from '../../lib/format';
 import { I } from '../Icon';
-import { Field, InlineAdd, MoneyInput, Sheet, TxRow, Vessel } from '../ui';
+import { Field, InlineAdd, MoneyInput, Sheet, TxRow, Vessel, useDragList } from '../ui';
 
 export function CatPage({st,j,ym,d,onEdit,openTx}){
   const acc=st.accounts.find(x=>x.id===j.accountId);
@@ -54,11 +54,45 @@ export function CatPage({st,j,ym,d,onEdit,openTx}){
   </div>);
 }
 
+/* Một account trong chế độ sắp xếp.
+
+   PHẢI là component chứ không thể là hàm render nội bộ: nó cần useDragList RIÊNG
+   cho danh sách category của chính nó, mà hook thì không gọi được trong .map().
+   Đúng luôn với rule react/no-unstable-nested-components — xem README §4. */
+export function AccountReorderCard({a,i,jars,accDl,onReorderJars}){
+  const jarDl=useDragList(jars.map(j=>j.id),onReorderJars);
+  return (
+    <div {...accDl.row(i,'card')}>
+      <div className="ro-acc">
+        <span {...accDl.handle(i)} aria-label={'Reorder '+a.name}><I n="grip" s={17}/></span>
+        <div className="dot" style={{background:accColor(a),color:'#fff'}}>
+          <I n={accIcon(a)} s={16}/></div>
+        <div className="row-b">
+          <div className="row-t">{a.name}</div>
+          <div className="row-s">{jars.length} categor{jars.length===1?'y':'ies'}</div>
+        </div>
+      </div>
+      <div {...jarDl.box}>
+        {jars.map((j,k)=>(
+          <div key={j.id} {...jarDl.row(k)}>
+            <div className="ro-cat">
+              <span {...jarDl.handle(k)} aria-label={'Reorder '+j.name}><I n="grip" s={15}/></span>
+              <div className="row-t grow" style={{minWidth:0}}>{j.name}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+      {jars.length===0 && <div className="ro-hint">No categories in this account yet</div>}
+    </div>
+  );
+}
+
 export function JarsScreen({st,set,ym,toast,openTx,catId,setCatId,openClose}){
   const [openAcc,setOpenAcc]=useState(()=>st.accounts.map(a=>a.id));
   const [edit,setEdit]=useState(null);
   const [accForm,setAccForm]=useState(null);
   const [jarForm,setJarForm]=useState(null);
+  const [reorder,setReorder]=useState(false);
   const s=useMemo(()=>monthSummary(st,ym),[st,ym]);
   const pageJar=catId?st.jars.find(x=>x.id===catId):null;
   /* Sheet che gần hết màn trên mobile nên mất dấu là đang thêm vào tài khoản
@@ -66,6 +100,27 @@ export function JarsScreen({st,set,ym,toast,openTx,catId,setCatId,openClose}){
   const jarFormAcc=jarForm?st.accounts.find(a=>a.id===jarForm.accountId):null;
 
   const toggle=id=>setOpenAcc(o=>o.includes(id)?o.filter(x=>x!==id):[...o,id]);
+
+  /* Thứ tự hiển thị CHÍNH LÀ thứ tự mảng — không có field `order` nào cả. Nên sắp
+     xếp = sắp lại mảng, và nó tự bền qua saveState. Kèm theo: ledger/meta được
+     ghi lại trong cùng transaction (accounts/jars đổi), nên client ngoài đọc meta
+     cũng thấy đúng thứ tự người dùng chọn. */
+  const reorderAccounts=ids=>set(d=>{
+    d.accounts=ids.map(id=>d.accounts.find(a=>a.id===id));
+  });
+
+  /* Category của MỘT account, nhưng d.jars là một mảng phẳng trộn mọi account.
+     Nên thay tại chỗ đúng các vị trí mà account này đang chiếm, thay vì gom
+     lại — gom lại sẽ đổi thứ tự tương đối của category các account khác, thứ mà
+     CloseMonth và JarSelect có dùng để hiển thị. */
+  const reorderJars=(accId,ids)=>set(d=>{
+    const slots=[];
+    d.jars.forEach((j,i)=>{ if(j.accountId===accId) slots.push(i) });
+    const ordered=ids.map(id=>d.jars.find(j=>j.id===id));
+    slots.forEach((pos,k)=>{ d.jars[pos]=ordered[k] });
+  });
+
+  const accDl=useDragList(st.accounts.map(a=>a.id),reorderAccounts);
 
   const saveOpening=(jarId,amount)=>{
     set(d=>{ d.openings[ym]=d.openings[ym]||{}; d.openings[ym][jarId]=amount; });
@@ -88,12 +143,20 @@ export function JarsScreen({st,set,ym,toast,openTx,catId,setCatId,openClose}){
     </div>
 
     <div className="sec-h"><h2>Accounts &amp; categories</h2>
-      <button className="act" onClick={()=>{setAccForm({name:'',kind:'bank',color:ACC_COLORS[0],icon:'bank',cats:[]})}}>+ Add account</button></div>
+      {st.accounts.length>0 && <button className={'sec-ic'+(reorder?' on':'')}
+        aria-pressed={reorder} title={reorder?'Done':'Reorder'}
+        aria-label={reorder?'Done reordering':'Reorder accounts and categories'}
+        onClick={()=>setReorder(v=>!v)}><I n={reorder?'check':'reorder'} s={15}/></button>}
+      {!reorder && <button className="act" onClick={()=>{setAccForm({name:'',kind:'bank',color:ACC_COLORS[0],icon:'bank',cats:[]})}}>+ Add account</button>}</div>
+
+    {reorder && <p className="mut" style={{fontSize:12.5,margin:'-2px 2px 10px'}}>
+      Drag the handles to reorder. Accounts move among themselves; categories move
+      inside their own account.</p>}
 
     {st.accounts.length===0 && <div className="card empty"><b>No accounts yet</b>
       Add a bank account or cash wallet to start splitting money into categories.</div>}
 
-    {st.accounts.map(a=>{
+    {!reorder && st.accounts.map(a=>{
       const js=st.jars.filter(j=>j.accountId===a.id);
       const tot=js.reduce((x,j)=>({o:x.o+s.js[j.id].open,l:x.l+s.js[j.id].left}),{o:0,l:0});
       const on=openAcc.includes(a.id);
@@ -151,6 +214,17 @@ export function JarsScreen({st,set,ym,toast,openTx,catId,setCatId,openClose}){
         </div>
       );
     })}
+
+    {/* Chế độ sắp xếp dựng lại danh sách ở dạng gọn: bỏ số tiền, vessel, nút sửa,
+        và luôn mở hết category. Ít thứ gây nhiễu, và quan trọng hơn là không thể
+        vừa kéo vừa bấm nhầm vào chi tiết category. */}
+    {reorder && <div {...accDl.box}>
+      {st.accounts.map((a,i)=>(
+        <AccountReorderCard key={a.id} a={a} i={i} accDl={accDl}
+          jars={st.jars.filter(j=>j.accountId===a.id)}
+          onReorderJars={ids=>reorderJars(a.id,ids)}/>
+      ))}
+    </div>}
 
     </>}
 

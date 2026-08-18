@@ -6,8 +6,9 @@ Web app mobile-first, dùng phương pháp **zero-based envelope budgeting**
 - **Ngôn ngữ UI:** English
 - **Tiền tệ:** VND, định dạng `vi-VN` (dấu chấm phân cách nghìn)
 - **Stack:** Next.js 16 (App Router) · React 19 · CSS thuần · Vitest
-- **Backend:** Firebase Auth (email/mật khẩu) + Firestore. Sổ nằm trong **một
-  document** `users/{uid}/ledger/state`, chỉ chính chủ đọc/ghi được. Xem §10.
+- **Backend:** Firebase Auth (email/mật khẩu) + Firestore. Cấu hình sổ ở
+  `users/{uid}/ledger/state`, mỗi giao dịch là một document riêng ở
+  `users/{uid}/txns/{txnId}`. Chỉ chính chủ đọc/ghi được. Xem §10.
 
 ---
 
@@ -24,7 +25,7 @@ Mở http://localhost:3000.
 |---|---|
 | `npm run dev` | Dev server (Turbopack) |
 | `npm run build` | Production build |
-| `npm test` | 25 test cho các hàm số học thuần |
+| `npm test` | 34 test cho các hàm thuần (số học, chuẩn hoá giao dịch, khoảng query tháng) |
 | `npm run lint` | ESLint, gồm rule chặn component lồng nhau |
 
 React và font đều được bundle/self-host lúc build, nên **không cần Internet** để
@@ -119,7 +120,7 @@ Hoàn tác kỳ → xoá giao dịch thu đó. Xoá khoản vay → xoá tất c
 app/
 ├─ layout.tsx          html/body · next/font self-host 2 font
 ├─ page.tsx            'use client' — RANH GIỚI CLIENT DUY NHẤT của toàn app
-└─ globals.css         289 dòng, copy nguyên khối từ bản một-file
+└─ globals.css         342 dòng, gốc copy nguyên khối từ bản một-file
 src/
 ├─ App.jsx             376  shell, routing, auth gating, confirm dialog, toast,
 │                           thao tác txn (txw), backup, màn chặn khi xung đột rev
@@ -136,13 +137,13 @@ src/
 └─ components/
    ├─ AuthGate.jsx     113  đăng nhập / tạo tài khoản / reset mật khẩu
    ├─ AccountPage.jsx   99  level-2: đổi mật khẩu · sign out
-   ├─ Icon.jsx          44  dictionary 24 SVG path
-   ├─ ui.jsx           195  Brand · PasswordInput · Vessel · Sheet · MoneyInput
-   │                        TagPicker · Field · JarSelect · TxRow
+   ├─ Icon.jsx          50  dictionary 43 SVG path
+   ├─ ui.jsx           346  Brand · PasswordInput · Vessel · Sheet · MoneyInput
+   │                        TagPicker · Field · JarSelect · TxRow · useDragList
    ├─ TxSheet.jsx       74  bottom sheet ghi/sửa giao dịch
    └─ screens/
       ├─ CloseMonth.jsx    271  (gồm AllocLine)
-      ├─ JarsScreen.jsx    260  (gồm CatPage)
+      ├─ JarsScreen.jsx    341  (gồm CatPage, AccountReorderCard)
       ├─ LoansPage.jsx     224
       ├─ ReportScreen.jsx  183
       ├─ Installments.jsx  137
@@ -157,14 +158,15 @@ directive ở từng file. `app/api/` để trống, dành cho tính năng cần
 
 `lib/` không import gì từ `components/`, nên dùng lại được ở phía server khi cần.
 
-### Components (20)
+### Components (21)
 
 ```
 AuthGate                chưa đăng nhập thì App render cái này thay vì cả cây dưới
 ├─ AccountPage          level 2: đổi mật khẩu, sign out
 App                     shell, routing, level-2 chrome, confirm dialog, toast
 ├─ JarsScreen           tab Categories
-│  └─ CatPage           level 2: chi tiết category
+│  ├─ CatPage           level 2: chi tiết category
+│  └─ AccountReorderCard  một account ở chế độ sắp xếp
 ├─ CalendarScreen       tab Calendar
 ├─ ReportScreen         tab Report
 ├─ Installments         tab Installments
@@ -185,6 +187,35 @@ App                     shell, routing, level-2 chrome, confirm dialog, toast
 > Giờ đã có rule `react/no-unstable-nested-components: error` chặn ở `npm run lint`,
 > không còn phải nhớ nữa. `AllocLine` và `CatPage` nằm cùng file với component cha
 > cho dễ đọc, nhưng vẫn ở module scope.
+
+### Sắp xếp lại accounts & categories
+
+Nút ↑↓ cạnh tiêu đề *Accounts & categories* bật chế độ sắp xếp: danh sách dựng
+lại ở dạng gọn (bỏ số tiền, vessel, nút sửa, luôn mở hết category), mỗi dòng có
+tay cầm để kéo. Account đổi chỗ với nhau; category đổi chỗ **trong account của
+chính nó**.
+
+**Thứ tự hiển thị chính là thứ tự mảng** — không có field `order` nào. Nên sắp xếp
+là sắp lại `st.accounts` / `st.jars`, và nó tự bền qua `saveState()`. Thứ tự này
+hiện ra ở cả `JarSelect`, `CloseMonth`, và `ledger/meta` (ghi cùng transaction).
+
+`useDragList` (trong `components/ui.jsx`) tự viết, không thêm thư viện — deps của
+project chỉ có firebase/next/react, và mọi thư viện DnD đủ dùng đều nặng hơn cả
+tính năng này. Ba điểm không được đổi:
+
+| Chi tiết | Nếu bỏ |
+|---|---|
+| Pointer Events, **không** HTML5 drag-and-drop | `dragstart`/`dragover` không bắn trên touch → mobile hết kéo được |
+| `touch-action:none` trên `.grip` | Safari iOS cuộn trang thay vì kéo |
+| `:scope > [data-di]` khi đo | List category lồng trong list account → phép đo của account nhặt luôn dòng category |
+
+`AccountReorderCard` phải là **component** chứ không thể là hàm render nội bộ: nó
+cần `useDragList` riêng cho category của chính nó, mà hook không gọi được trong
+`.map()`.
+
+Dòng đang kéo **nổi lên tại chỗ**, không đi theo ngón tay; vạch xanh chỉ nơi nó sẽ
+hạ xuống. Nhờ không dùng transform nên bóng không bị `.card{overflow:hidden}` cắt,
+và dòng cao thấp khác nhau (card account vs dòng category) đều xử lý được.
 
 ### Điều hướng
 
