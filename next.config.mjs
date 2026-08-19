@@ -1,5 +1,9 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  /* App chỉ dùng Firebase client SDK, không có SSR/API route. Xuất toàn bộ thành
+     file tĩnh để Firebase Hosting Classic phục vụ trực tiếp từ thư mục out/. */
+  output: 'export',
+
   /* Bật được sau khi effect loadState ở App.jsx đã có cancelled-guard. */
   reactStrictMode: true,
 

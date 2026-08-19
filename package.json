@@ -6,11 +6,12 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start",
+    "start": "npx -y firebase-tools@latest emulators:start --only hosting",
+    "deploy:hosting": "npm run build && npx -y firebase-tools@latest deploy --only hosting",
     "lint": "eslint .",
     "test": "vitest run",
     "test:watch": "vitest",
-    "rules:deploy": "firebase deploy --only firestore:rules"
+    "rules:deploy": "npx -y firebase-tools@latest deploy --only firestore:rules"
   },
   "dependencies": {
     "firebase": "^12.17.1",
