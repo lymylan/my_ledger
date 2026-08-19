@@ -188,12 +188,59 @@ App                     shell, routing, level-2 chrome, confirm dialog, toast
 > không còn phải nhớ nữa. `AllocLine` và `CatPage` nằm cùng file với component cha
 > cho dễ đọc, nhưng vẫn ở module scope.
 
+### Số dư còn lại trong sheet ghi giao dịch
+
+Dưới ô chọn category có dòng nhỏ: số dư của **category** và của cả **account** chứa
+nó **SAU KHI** áp số tiền đang nhập (`JarLeft` trong `TxSheet.jsx`). Transfer hiện
+dưới cả hai ô From/To. Số âm màu đỏ.
+
+**Cập nhật khi số tiền đã chốt, không phải mỗi ký tự.** `MoneyInput` có prop
+`onCommit` (khác `onChange`) — bắn khi rời ô, và khi bấm nút gợi ý / cộng nhanh.
+Với nút thì `onCommit` phải nhận giá trị làm tham số: `blur` xảy ra TRƯỚC `click`,
+dựa vào blur không thôi sẽ chốt số cũ. `TxSheet` giữ số đã chốt trong state `applied`
+riêng, vì `f.amount` đổi mỗi ký tự — số dư nhảy theo từng chữ số vừa nhiễu vừa vô
+nghĩa.
+
+Hai chỗ dễ sai:
+
+| Chi tiết | Nếu làm sai |
+|---|---|
+| Khi **sửa** giao dịch đã có, phải bỏ nó khỏi `jarStats` trước rồi mới áp số mới | Số cũ còn trong số dư, cộng số mới vào là trừ hai lần |
+| Chỉ hiện khi **ngày giao dịch nằm trong tháng đang nạp** | `st.txns` chỉ giữ một tháng, `jarStats` cho tháng khác ra số **cao hơn thực tế** vì không có giao dịch nào để trừ. Đổi ngày sang tháng khác thì dòng tự ẩn |
+
+Điều chỉnh phải cộng dồn từ **một map duy nhất** đã áp cả hai chân của transfer:
+transfer trong cùng một account thì lọ đi giảm, lọ đến tăng, tổng account không đổi —
+chỉ ra đúng khi tính từ cùng một map.
+
+### Vùng chạm của dòng account
+
+```
+[ icon | tên account ✎ | N categories ]   [ khoảng trắng   793.000 / Remaining   ⌃ ]
+└──────────── Edit account ────────────┘  └────────── gập / mở ──────────────────┘
+```
+
+`.acc-edit` **bó sát nội dung** (`flex:0 1 auto`), phần còn lại thuộc `.acc-toggle`
+(`flex:1 0 auto`). Trước đây `.acc-edit` là `flex:1` nên nó ăn hết khoảng trắng giữa
+"N categories" và số tiền — chạm vào chỗ trống đó ra *Edit account*, không ai đoán
+được.
+
+`flex-shrink` hai bên khác nhau có chủ ý: tên account dài thì **chính nó** bị
+ellipsis, số tiền không bao giờ bị cắt.
+
 ### Sắp xếp lại accounts & categories
 
 Nút ↑↓ cạnh tiêu đề *Accounts & categories* bật chế độ sắp xếp: danh sách dựng
-lại ở dạng gọn (bỏ số tiền, vessel, nút sửa, luôn mở hết category), mỗi dòng có
-tay cầm để kéo. Account đổi chỗ với nhau; category đổi chỗ **trong account của
-chính nó**.
+lại ở dạng gọn (bỏ số tiền, vessel, nút sửa), mỗi dòng có tay cầm để kéo. Chevron
+gập/mở vẫn còn, **dùng chung state `openAcc` với chế độ thường** nên gập/mở không
+bị đặt lại khi vào/ra — gập hết lại là cách dễ nhất để xếp nhiều account, các card
+thu về chiều cao đều nhau. Account đổi chỗ với nhau; category đổi chỗ **trong account của
+chính nó**. Ra khỏi chế độ này bằng nút text **Apply** ở mép phải — chiếm đúng chỗ
+của *+ Add account*, hai nút không bao giờ cùng xuất hiện.
+
+⚠️ Nhãn *Apply* chỉ là **đường ra**, không phải nút lưu: mỗi lần thả là một lần
+`set()` nên thứ tự đã vào Firestore ngay. Muốn *Apply* đúng nghĩa "chưa lưu tới khi
+bấm" thì phải đệm thứ tự vào state cục bộ và chỉ commit khi bấm — kèm theo phải
+quyết định chuyện thoát ngang thì huỷ hay giữ.
 
 **Thứ tự hiển thị chính là thứ tự mảng** — không có field `order` nào. Nên sắp xếp
 là sắp lại `st.accounts` / `st.jars`, và nó tự bền qua `saveState()`. Thứ tự này
@@ -213,9 +260,32 @@ tính năng này. Ba điểm không được đổi:
 cần `useDragList` riêng cho category của chính nó, mà hook không gọi được trong
 `.map()`.
 
-Dòng đang kéo **nổi lên tại chỗ**, không đi theo ngón tay; vạch xanh chỉ nơi nó sẽ
-hạ xuống. Nhờ không dùng transform nên bóng không bị `.card{overflow:hidden}` cắt,
-và dòng cao thấp khác nhau (card account vs dòng category) đều xử lý được.
+Dòng đang kéo **đi theo ngón tay** (`translateY` inline) và **nổi lên** (bóng +
+`scale(1.02)`); vạch xanh chỉ nơi nó sẽ hạ xuống. `transform` phải để inline vì
+`dy` đổi mỗi `pointermove` — và vì thế `.dl-row` **chỉ** transition `box-shadow`,
+thêm transform vào transition là dòng kéo lết sau ngón tay.
+
+**Nắm vào account là card đó tự gập lại** thành một dòng (`accDl.dragging === i`),
+bất kể đang mở hay không: một card 5 category cao gần nửa màn hình, kéo đi rất khó
+ngắm. Đo thật: 275px → 64px, và cả list co từ 1415px → 1203px. Thả ra thì mở lại
+theo `openAcc`.
+
+Năm chi tiết đã sửa từ bug thật, đừng gộp lại:
+
+| Chi tiết | Nếu làm sai |
+|---|---|
+| `dragging` và vạch đích là **hai điều kiện tách rời** trong `rowClass()` | Từng dùng chung `to !== from` → nắm vào card mà chưa di chuyển thì không nổi lên, tưởng chưa bắt được |
+| rect đo ở **frame đầu** (`measure()` trong `tick`), KHÔNG trong `pointerdown` | Việc gập card đang kéo đổi layout — mọi dòng dưới dịch lên. Đo trong `pointerdown` là đo layout cũ rồi tính đích trên số đo lạc hậu |
+| rect lưu theo **toạ độ tài liệu** (`+ window.scrollY`) | `getBoundingClientRect` theo viewport; auto-scroll dịch viewport dưới chân nên rect đo lúc đầu sai ngay khi cuộn |
+| Auto-scroll là vòng **rAF**, không làm trong `pointermove` | Giữ ngón tay yên ở mép thì không còn event nào bắn — mà đúng lúc đó mới cần cuộn nhất |
+| `.card.dl-open{overflow:visible}` khi list con đang kéo | `.card` có `overflow:hidden`, dòng category kéo ra ngoài card bị cắt mất |
+
+`startY` cũng lấy lại trong `measure()` theo `lastY` tại đúng thời điểm đó, nên
+`dy = 0` ngay sau khi gập và card không giật một nhịp.
+
+`scale` giữ ở 1.02: rect đo TRƯỚC khi class áp vào nên phóng to không phản hồi ngược
+vào phép đo, nhưng lớn hơn thì tay cầm lệch khỏi ngón tay. Vùng auto-scroll dưới
+(120px) rộng hơn trên (80px) vì bottom nav 64px phủ mất phần đáy.
 
 ### Điều hướng
 
@@ -277,6 +347,7 @@ Các chỗ dễ mất dữ liệu, đã xử lý — **đừng gỡ**:
 | `rev` + `runTransaction` | Hai tab cùng mở, tab cũ ghi đè sạch việc tab kia làm |
 | Trong `migrateTxnsOut()`: ghi txns ra subcollection **trước**, gỡ khỏi `state` **sau** | Đảo thứ tự thì một lỗi mạng giữa chừng là mất sạch giao dịch |
 | `stripTxns()` trong `saveState()` | txns quay lại nằm trong state doc, hỏng đúng thứ vừa sửa |
+| `Sheet` nhớ `scrollY` khi mở và trả lại khi đóng (2 nhịp: ngay + 1 frame) | `body{overflow:hidden}` một mình không đủ trên iOS: chạm ô nhập → bàn phím mở → Safari cuộn cả document để lộ ô focus dù sheet là `position:fixed`, tắt bàn phím thì không trả lại. Đóng sheet là màn hình nhảy đi mất |
 
 `saveState()` **bỏ qua write khi payload không đổi** (so JSON với lần ghi thành
 công gần nhất). Không có chốt này thì mỗi lần đổi tháng và mỗi lần mở app là một

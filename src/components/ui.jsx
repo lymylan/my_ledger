@@ -116,11 +116,27 @@ export function Vessel({pct,low=false,md=false}){
   );
 }
 export function Sheet({title,onClose,children,footer,wide}){
+  /* Nhớ vị trí cuộn khi mở, TRẢ LẠI khi đóng.
+
+     `body{overflow:hidden}` một mình không giữ được vị trí trên iOS: chạm vào ô
+     nhập -> bàn phím mở -> Safari cuộn cả document để lộ ô đang focus (dù sheet là
+     position:fixed), bàn phím tắt thì nó KHÔNG trả lại. Kết quả là đóng sheet xong
+     màn hình nhảy đi đâu mất.
+
+     Trả lại hai nhịp: ngay lập tức, và một lần nữa ở frame sau. Bàn phím iOS tắt
+     có animation, reflow của nó có thể xảy ra SAU cleanup và đè mất lần trả đầu.
+     Hai frame là quá ngắn để người dùng kịp cuộn tay, nên không giành nhau. */
   useEffect(()=>{
     const h=e=>{if(e.key==='Escape')onClose()};
     window.addEventListener('keydown',h);
+    const y=window.scrollY;
     document.body.style.overflow='hidden';
-    return()=>{window.removeEventListener('keydown',h);document.body.style.overflow=''};
+    return()=>{
+      window.removeEventListener('keydown',h);
+      document.body.style.overflow='';
+      window.scrollTo(0,y);
+      requestAnimationFrame(()=>window.scrollTo(0,y));
+    };
   },[]);
   return (<>
     <div className="scrim" onClick={onClose}/>
@@ -134,7 +150,13 @@ export function Sheet({title,onClose,children,footer,wide}){
     </div>
   </>);
 }
-export function MoneyInput({value,onChange,placeholder='0',autoFocus,boxed,center,quick,children}){
+/* onCommit = "số tiền đã chốt", KHÁC onChange (bắn mỗi ký tự).
+   Bắn khi rời ô, và khi bấm nút gợi ý / nút cộng nhanh — bấm nút cũng làm ô mất
+   focus, nhưng blur xảy ra TRƯỚC click nên nếu chỉ dựa vào blur thì sẽ chốt giá trị
+   cũ, trước khi nút kịp đổi số. Vì vậy onCommit nhận giá trị làm tham số chứ không
+   để nơi gọi tự đọc state. */
+export function MoneyInput({value,onChange,onCommit,placeholder='0',autoFocus,boxed,center,quick,children}){
+  const commit=v=>{ if(onCommit) onCommit(v) };
   const [picked,setPicked]=useState(false);
   const txt=value?Number(value).toLocaleString('vi-VN'):'';
   const on=e=>{const d=e.target.value.replace(/[^\d]/g,'');setPicked(false);onChange(d?Number(d):0)};
@@ -143,24 +165,24 @@ export function MoneyInput({value,onChange,placeholder='0',autoFocus,boxed,cente
   const field=boxed
     ? <div className="amt-wrap">
         <input className="amt-field" inputMode="numeric" autoFocus={autoFocus}
-          value={txt} placeholder={placeholder} onChange={on}/>
+          value={txt} placeholder={placeholder} onChange={on} onBlur={()=>commit(value)}/>
         <span className="amt-cur">₫</span>
       </div>
     : <input className="big-amt" inputMode="numeric" autoFocus={autoFocus} value={txt}
-        placeholder={placeholder} onChange={on}/>;
+        placeholder={placeholder} onChange={on} onBlur={()=>commit(value)}/>;
 
   let foot=null;
   if(sug.length) foot=(
     <div className={'sugg'+(center?' mid':'')}>
       {sug.map(n=>(
-        <button key={n} onClick={()=>{setPicked(true);onChange(n)}}>{money(n)}</button>
+        <button key={n} onClick={()=>{setPicked(true);onChange(n);commit(n)}}>{money(n)}</button>
       ))}
     </div>
   );
   else if(quick) foot=(
     <div className="quick">
-      {quick.map(v=><button key={v} onClick={()=>{setPicked(true);onChange(value+v)}}>+{shortM(v)}</button>)}
-      <button onClick={()=>{setPicked(false);onChange(0)}}>Clear</button>
+      {quick.map(v=><button key={v} onClick={()=>{setPicked(true);onChange(value+v);commit(value+v)}}>+{shortM(v)}</button>)}
+      <button onClick={()=>{setPicked(false);onChange(0);commit(0)}}>Clear</button>
     </div>
   );
 
@@ -278,8 +300,70 @@ export function TxRow({st,t,onClick}){
    globals.css. Cách này chịu được dòng cao thấp khác nhau (card account cao khác
    dòng category), thứ mà kiểu "đẩy các dòng ở giữa" không làm được. */
 export function useDragList(ids, onReorder) {
-  const [drag, setDrag] = useState(null);   // {from,to} — chỉ để render
+  const [drag, setDrag] = useState(null);   // {from,to,dy} — để render
   const geo = useRef(null);
+
+  /* Tính lại đích + độ dời từ trạng thái trong geo. Gọi từ CẢ pointermove và
+     vòng auto-scroll, vì khi giữ ngón tay yên ở mép màn hình thì pointermove
+     không bắn nữa nhưng trang vẫn đang cuộn. */
+  const apply = () => {
+    const g = geo.current;
+    if (!g || !g.rects) return;                 // chưa đo xong thì chưa tính được
+    const dy = g.lastY + window.scrollY - g.startY;
+    const r = g.rects, last = r.length - 1;
+    const c = r[g.from].top + r[g.from].h / 2 + dy;
+    let to = g.from;
+    if (c < r[0].top) to = 0;
+    else if (c > r[last].bottom) to = last;
+    else for (let i = 0; i <= last; i++) {
+      if (c >= r[i].top && c <= r[i].bottom) { to = i; break }
+    }
+    g.to = to;
+    setDrag(d => (d && d.to === to && d.dy === dy ? d : { from: g.from, to, dy }));
+  };
+
+  /* Đo rect ở FRAME ĐẦU của lần kéo, không phải trong pointerdown.
+
+     Lý do: nơi gọi có thể thu gọn phần tử đang kéo lại cho dễ kéo (JarsScreen gập
+     danh sách category của account đang nắm). Việc đó ĐỔI LAYOUT — mọi dòng bên
+     dưới dịch lên. Đo trong pointerdown là đo layout cũ, rồi tính đích trên số đo
+     đã lạc hậu.
+     rAF chạy sau khi React đã commit DOM nên số đo là layout thật lúc đang kéo.
+     startY lấy lại theo lastY ở đúng thời điểm đó, nên dy = 0 và card không giật.
+
+     Toạ độ TÀI LIỆU (cộng scrollY): getBoundingClientRect trả theo viewport, mà
+     auto-scroll dịch viewport dưới chân. Cộng một lần ở đây rồi mọi so sánh về sau
+     cùng hệ toạ độ. */
+  const measure = () => {
+    const g = geo.current;
+    const sy = window.scrollY;
+    g.rects = [...g.box.querySelectorAll(':scope > [data-di]')].map(el => {
+      const b = el.getBoundingClientRect();
+      return { top: b.top + sy, bottom: b.bottom + sy, h: b.height };
+    });
+    g.startY = g.lastY + sy;
+  };
+
+  /* Auto-scroll khi kéo tới sát mép. Phải là vòng rAF chứ không thể làm trong
+     pointermove: giữ ngón tay yên ở mép thì không còn event nào bắn, mà đúng lúc
+     đó mới là lúc cần cuộn nhất.
+     Vùng dưới rộng hơn vì bottom nav (64px) phủ mất phần đáy. */
+  const EDGE_TOP = 80, EDGE_BOTTOM = 120, MAX_V = 16;
+  const tick = () => {
+    const g = geo.current;
+    if (!g) return;
+    if (!g.rects) measure();
+    const h = window.innerHeight;
+    let v = 0;
+    if (g.lastY < EDGE_TOP) v = -Math.ceil((EDGE_TOP - g.lastY) / EDGE_TOP * MAX_V);
+    else if (g.lastY > h - EDGE_BOTTOM) v = Math.ceil((g.lastY - (h - EDGE_BOTTOM)) / EDGE_BOTTOM * MAX_V);
+    if (v) {
+      const before = window.scrollY;
+      window.scrollBy(0, v);
+      if (window.scrollY !== before) apply();   // cuộn xong thì dy/to đổi theo
+    }
+    g.raf = requestAnimationFrame(tick);
+  };
 
   const start = (e, from) => {
     if (e.button !== undefined && e.button !== 0) return;   // chỉ chuột trái
@@ -292,55 +376,66 @@ export function useDragList(ids, onReorder) {
     if (!box) return;
     e.preventDefault();
     e.stopPropagation();                                    // list lồng nhau
-    const rects = [...box.querySelectorAll(':scope > [data-di]')]
-      .map(el => el.getBoundingClientRect());
-    if (rects.length < 2) return;                           // 0-1 phần tử: khỏi kéo
-    geo.current = { rects, startY: e.clientY, from, to: from };
-    setDrag({ from, to: from });
+    /* Đếm được mà không cần đo, nên chặn ngay ở đây: 0-1 phần tử thì khỏi kéo. */
+    if (box.querySelectorAll(':scope > [data-di]').length < 2) return;
+    geo.current = { box, from, to: from, lastY: e.clientY, rects: null, startY: 0, raf: 0 };
+    setDrag({ from, to: from, dy: 0 });
     try { e.currentTarget.setPointerCapture(e.pointerId) } catch { /* không sao */ }
+    geo.current.raf = requestAnimationFrame(tick);
   };
 
   const move = e => {
     const g = geo.current;
     if (!g) return;
-    const c = g.rects[g.from].top + g.rects[g.from].height / 2 + (e.clientY - g.startY);
-    const last = g.rects.length - 1;
-    let to = g.from;
-    if (c < g.rects[0].top) to = 0;
-    else if (c > g.rects[last].bottom) to = last;
-    else for (let i = 0; i <= last; i++) {
-      if (c >= g.rects[i].top && c <= g.rects[i].bottom) { to = i; break }
-    }
-    if (to === g.to) return;
-    g.to = to;
-    setDrag(d => (d ? { ...d, to } : d));
+    g.lastY = e.clientY;
+    apply();
   };
 
   const end = () => {
     const g = geo.current;
     geo.current = null;
     setDrag(null);
-    if (!g || g.to === g.from) return;
+    if (!g) return;
+    cancelAnimationFrame(g.raf);
+    if (!g.rects || g.to === g.from) return;    // chạm nhanh, thả trước frame đầu
+
     const next = [...ids];
     next.splice(g.to, 0, next.splice(g.from, 1)[0]);
     onReorder(next);
   };
 
-  /* Vạch đích nằm ở cạnh trên khi kéo lên, cạnh dưới khi kéo xuống — khớp với
-     ngữ nghĩa "thả vào đúng ô đang trỏ tới". */
+  /* Hai việc TÁCH RIÊNG, đừng gộp lại:
+       - `dragging` bật ngay khi nhấn xuống, kể cả chưa di chuyển. Đây là phản hồi
+         "đã nắm được rồi"; gộp vào điều kiện to!==from thì nắm vào card không nổi
+         lên, người dùng tưởng chưa bắt được.
+       - vạch đích chỉ hiện khi đích KHÁC chỗ cũ, không thì vẽ vạch vô nghĩa quanh
+         chính nó.
+     Vạch nằm ở cạnh trên khi kéo lên, cạnh dưới khi kéo xuống — khớp với ngữ nghĩa
+     "thả vào đúng ô đang trỏ tới". */
   const rowClass = i => {
-    if (!drag || drag.to === drag.from) return 'dl-row';
+    if (!drag) return 'dl-row';
     if (i === drag.from) return 'dl-row dragging';
-    if (i !== drag.to) return 'dl-row';
+    if (drag.to === drag.from || i !== drag.to) return 'dl-row';
     return 'dl-row ' + (drag.to < drag.from ? 'drop-before' : 'drop-after');
   };
 
   return {
     box: { 'data-dl': '' },
     active: !!drag,
+    /* Index đang được kéo, -1 nếu không kéo. Nơi gọi dùng để thu gọn phần tử đó
+       lại cho dễ kéo — xem AccountReorderCard. */
+    dragging: drag ? drag.from : -1,
     /* `cls` để gộp class sẵn có của phần tử (ví dụ 'card') — spread props sau
-       className thì className bị ghi đè mất. */
-    row: (i, cls) => ({ 'data-di': '', className: (cls ? cls + ' ' : '') + rowClass(i) }),
+       className thì className bị ghi đè mất.
+       transform phải để INLINE vì dy đổi liên tục; scale gộp luôn vào đây, không
+       để trong CSS, vì inline transform sẽ ghi đè mất rule kia. */
+    row: (i, cls) => {
+      const p = { 'data-di': '', className: (cls ? cls + ' ' : '') + rowClass(i) };
+      if (drag && i === drag.from) {
+        p.style = { transform: 'translateY(' + drag.dy + 'px) scale(1.02)' };
+      }
+      return p;
+    },
     handle: i => ({
       className: 'grip', role: 'button', tabIndex: -1, 'aria-hidden': 'true',
       onPointerDown: e => start(e, i),

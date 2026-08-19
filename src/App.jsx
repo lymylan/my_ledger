@@ -311,7 +311,7 @@ export default function App(){
               <I n={t.i} s={20}/>{t.n}</button>)}
       </nav>}
 
-      {tx&&<TxSheet st={st} set={set} txw={txw} tx={tx} onClose={()=>setTx(null)} toast={toast}/>}
+      {tx&&<TxSheet st={st} set={set} txw={txw} tx={tx} ym={ym} onClose={()=>setTx(null)} toast={toast}/>}
       {msg&&<div className="toast">{msg}</div>}
 
       {box&&<>

@@ -278,7 +278,11 @@ nhầm vào chi tiết category.
 | `:scope > [data-di]` khi đo rect | List category LỒNG trong list account; không scope thì phép đo của account nhặt luôn dòng category |
 | `to` lưu trong ref, không đọc state lúc thả | `pointerup` có thể xảy ra cùng frame với `pointermove` cuối, khi đó state chưa cập nhật |
 | Container tìm bằng `closest('[data-dl]')` từ event | Ban đầu dùng ref rồi callback ref, cả hai đều bị `react-hooks/refs` của React Compiler chặn ("Cannot access refs during render"). Tìm từ event thì không cần ref, mà còn gọn hơn: nơi gọi khỏi phải nhớ gắn ref |
-| Dòng đang kéo nổi lên **tại chỗ** + vạch đích, không đi theo ngón tay | Không cần transform → bóng không bị `.card{overflow:hidden}` cắt, và dòng cao thấp khác nhau (card account vs dòng category) đều xử lý được. Kiểu "đẩy các dòng ở giữa" đòi chiều cao đều nhau |
+| Dòng đang kéo **đi theo ngón tay** (`translateY` inline) + nổi lên (bóng, `scale(1.02)`) + vạch đích | Bản đầu chỉ nổi tại chỗ, chủ dự án phản hồi ngay là thiếu cảm giác kéo. `transform` phải inline vì `dy` đổi mỗi event, nên `.dl-row` chỉ transition `box-shadow` — thêm transform vào transition là dòng lết sau ngón tay |
+| Auto-scroll khi kéo tới sát mép, bằng vòng **rAF** | Bản đầu không có, 7 account thì không kéo tới cuối list được. Không làm trong `pointermove` được: giữ ngón tay yên ở mép thì hết event, mà đúng lúc đó mới cần cuộn |
+| rect theo **toạ độ tài liệu** và đo ở **frame đầu**, không đo trong `pointerdown` | Hai lý do cộng lại: auto-scroll dịch viewport dưới chân, và card đang kéo tự gập lại làm đổi layout. Đo trong `pointerdown` là tính đích trên số đo lạc hậu cả hai chiều |
+| Nắm account thì **card tự gập** thành một dòng | Card 5 category cao gần nửa màn hình, kéo rất khó ngắm. Đo thật 275px → 64px, cả list co 1415 → 1203px |
+| `.card.dl-open{overflow:visible}` khi list con đang kéo | `.card` có `overflow:hidden` nên dòng category kéo ra ngoài card bị cắt mất |
 | `AccountReorderCard` là component ở module scope | Cần `useDragList` riêng cho category của nó, mà hook không gọi được trong `.map()`. Đúng luôn rule `react/no-unstable-nested-components` |
 
 ### Verify trên dev server
@@ -288,7 +292,153 @@ Kéo TPBank lên đầu → 2 category của nó đi theo, các account khác kh
 Vietcombank / TPB Saving giữ nguyên thứ tự. Reload: thứ tự còn nguyên. Dropdown
 *Deduct from category* đọc ra đúng thứ tự mới.
 
+Đo số trong lúc đang kéo: nắm vào là `translateY(0) scale(1.02)` (không giật),
+card 275px → 64px, list 1415px → 1203px, không có vạch đích khi `to === from`.
+Đẩy ngón tay xuống sát đáy rồi GIỮ YÊN: `scrollY` 0 → 140 → 1330, `translateY`
+708 → 1884 — tức card vẫn nằm dưới ngón tay khi trang tự cuộn. Chiều lên cũng
+vậy, về `scrollY: 0` và đích thành index 0.
+
+⚠️ Bài học khi verify: **đừng mô phỏng kéo-thả bằng synthetic PointerEvent trên dữ
+liệu thật.** Kịch bản "đưa ngón tay về chỗ cũ rồi thả để không commit" tính sai vì
+`getBoundingClientRect` của phần tử đang kéo đã bị `transform` dời đi, nên nó
+commit thật và đảo thứ tự account của chủ dự án hai lần (đã trả lại). Muốn kiểm mà
+không đổi dữ liệu thì nhấn giữ **giữa viewport và không di chuyển** — `dy` giữ 0,
+`to === from`, thả không commit.
+
 34 test pass · build OK · lint 0 error (đúng 5 warning có sẵn).
+
+## Giai đoạn 11 — Giữ vị trí cuộn khi đóng bottom sheet
+
+Báo lỗi: edit category xong, sheet đóng, màn hình nhảy đi đâu mất.
+
+**Không tái hiện được trong browser pane** — đo qua cả mở/Save/đóng ở 1280x800 và
+375x812 thì `scrollY` giữ đúng 1400, `body.overflow` chuyển `hidden` rồi về rỗng
+đúng như mong đợi. Nguyên nhân nằm ở thứ môi trường này không có: **bàn phím ảo
+iOS**. Sheet edit category không có `autoFocus`, nên bàn phím chỉ mở khi người dùng
+chạm vào ô — khớp với "edit *xong*" mới bị. Khi bàn phím mở mà `body` đang
+`overflow:hidden`, Safari cuộn cả document để lộ ô đang focus (dù sheet là
+`position:fixed`), và bàn phím tắt thì không trả lại vị trí cũ.
+
+Cách chữa: đừng phụ thuộc vào hành vi browser. `Sheet` nhớ `window.scrollY` lúc mở
+và `scrollTo` lại lúc đóng. Trả **hai nhịp** — ngay lập tức và một lần nữa ở frame
+sau — vì bàn phím iOS tắt có animation, reflow của nó có thể xảy ra SAU cleanup và
+đè mất lần trả đầu. Hai frame quá ngắn để người dùng kịp cuộn tay nên không giành
+nhau.
+
+Vì fix nằm trong `Sheet`, mọi bottom sheet đều được: giao dịch, category, account,
+plan, loan, Settings.
+
+### Verify
+
+Giả lập đúng việc iOS làm — dời `scrollY` sang 240 trong lúc sheet đang mở, rồi
+đóng: trả về 1400 ngay, và vẫn 1400 ở frame sau.
+
+### Phát hiện kèm theo, CHƯA sửa
+
+Vào trang level-2 từ danh sách đang cuộn thì trang mới mở ra ở vị trí cuộn cũ (bị
+kẹp về max của trang đó). Đo: Categories ở `scrollY 1400` → mở *Plan template* →
+`scrollY 130.5`, đúng bằng max scroll của trang đó. **Có sẵn từ trước**, không do
+fix này (trước đây browser giữ 1400 rồi cũng kẹp về 130 y hệt). Chỉ lộ ra ở trang
+level-2 đủ dài để cuộn — *category detail* thì `max_scroll = 0` nên tự về 0.
+Sửa là một dòng `window.scrollTo(0,0)` khi vào level-2, nhưng đổi hành vi ở 5 đường
+điều hướng nên để chủ dự án quyết.
+
+## Giai đoạn 12 — Chia lại vùng chạm của dòng account
+
+`.acc-edit` từng là `flex:1`, nên nó ăn hết khoảng trắng giữa "N categories" và số
+tiền. Chạm vào vùng trống ở giữa dòng ra *Edit account* — không có gì báo hiệu, và
+đó là vùng rộng nhất của cả dòng.
+
+Sửa bằng CSS, không đổi markup:
+
+```
+[ icon | tên ✎ | N categories ]  [ khoảng trắng   793.000 / Remaining   ⌃ ]
+└────────── Edit ──────────────┘  └───────────── gập / mở ───────────────┘
+```
+
+- `.acc-edit{flex:0 1 auto}` — bó sát nội dung, co lại được
+- `.acc-toggle{flex:1 0 auto;justify-content:flex-end}` — chiếm phần còn lại, không co
+
+`flex-shrink` khác nhau có chủ ý: tên account dài thì chính nó bị ellipsis, số tiền
+không bao giờ bị cắt.
+
+### Verify
+
+Đo `getBoundingClientRect` của hai nút trên 3 account: vùng Edit rộng 136 / 185 /
+191px đúng theo độ dài tên (tức là hug thật), vùng gập/mở lấy phần còn lại tới mép
+phải, hai vùng liền mạch không có kẽ hở.
+
+`elementFromPoint` dọc theo dòng: icon · chữ "Cash" · "3 categories" · bút chì →
+`acc-edit`; ngay sau title (+10px) · khoảng trắng · số tiền · "Remaining" · chevron
+→ `acc-toggle`.
+
+Chạm thật: khoảng trắng giữa → `aria-expanded=false`, 0 dòng category, không mở
+sheet. Chạm vào chữ "Cash" → sheet *Edit account* với ô tên điền "Cash".
+
+## Giai đoạn 13 — Hiện số dư sau giao dịch khi đang ghi
+
+Dưới ô chọn category: dòng nhỏ *Category X · <tên account> Y*, là số dư **sau khi**
+áp số tiền đang nhập. Transfer hiện dưới cả hai ô From/To. Số âm màu đỏ.
+
+`jarStats` tính một lần ở `TxSheet` bằng `useMemo` rồi truyền xuống — gọi trong
+`JarLeft` là quét lại toàn bộ txns cho từng ô chọn.
+
+### Chốt số khi rời ô, không phải mỗi ký tự
+
+`MoneyInput` có thêm prop `onCommit`, khác `onChange`. Bắn khi rời ô và khi bấm nút
+gợi ý / cộng nhanh. Với nút thì `onCommit` **phải nhận giá trị làm tham số**: `blur`
+xảy ra TRƯỚC `click`, nếu chỉ dựa vào blur thì chốt đúng cái số cũ trước khi nút kịp
+đổi.
+
+`TxSheet` giữ số đã chốt trong state `applied` riêng thay vì đọc `f.amount` — `f.amount`
+đổi mỗi ký tự, số dư nhảy theo từng chữ số (gõ "25" thấy 2 rồi 25) vừa nhiễu vừa vô
+nghĩa.
+
+### Sửa giao dịch đã có: phải loại nó ra trước
+
+`jarStats` tính trên `st.txns`, mà giao dịch đang sửa nằm trong đó. Áp thẳng số mới
+là trừ hai lần. Nên lọc nó ra trước: `{...st, txns: st.txns.filter(t => t.id !== f.id)}`.
+
+Điều chỉnh cũng phải cộng dồn từ **một map duy nhất** đã áp cả hai chân của transfer —
+transfer trong cùng account thì lọ đi giảm, lọ đến tăng, tổng account không đổi, chỉ
+ra đúng khi tính từ cùng map.
+
+### Cái bẫy do việc tách txns tạo ra
+
+`st.txns` giờ chỉ giữ **một tháng** (giai đoạn 9). Nên `jarStats(st, thángKhác)` trả
+về số **cao hơn thực tế**: `openings` có, mà không có giao dịch nào để trừ. Sheet lại
+cho đổi ngày sang tháng bất kỳ.
+
+Chọn: chỉ hiện khi `ymOfDate(f.date) === ym` (tháng đang nạp), đổi ngày sang tháng
+khác thì dòng tự ẩn. Thà không hiện còn hơn hiện số sai — đây là app sổ chi tiêu,
+một con số sai ở đúng chỗ người ta đang quyết định chi tiêu thì tệ hơn là không có
+số nào.
+
+Phương án khác đã loại: nạp txns của tháng đó để tính. Thành async trong sheet, phải
+thêm trạng thái loading cho một dòng phụ trợ.
+
+### Verify
+
+Đối chiếu với danh sách phía sau sheet: sheet mới mở hiện *Xăng 300.000 / Cash
+593.000*, danh sách hiện Gửi xe 93.000 + Xăng 300.000 + Tiền ăn Cash 200.000 =
+593.000 đúng bằng dòng account. Đổi category trong ô chọn thì cả hai số và tên
+account đổi theo. Đổi ngày sang 2026-09 → dòng ẩn; về 2026-08 → hiện lại.
+
+Chốt số (chạm thật, không synthetic): gõ 120.000 mà chưa rời ô → vẫn 4.292.000 /
+8.098.000; rời ô → 4.172.000 / 7.978.000 (đúng −120.000 cả hai). Đổi sang Income →
+4.412.000 / 8.218.000 (đúng +120.000). Nhập 5.000.000 → Category −708.000 màu
+`--out`, account 3.098.000 màu thường.
+
+Sửa giao dịch đã có: category *Xăng* còn 300.000 với đúng một khoản chi 100.000. Mở
+khoản đó ra → dòng hiện 300.000, tức bằng số thật. Không phải 200.000 (trừ hai lần)
+cũng không phải 400.000 (chưa loại ra).
+
+⚠️ Bài học verify, lần thứ hai trong ngày: **synthetic event không thay được chạm
+thật.** `el.focus()` không ăn khi document không có focus nên `blur()` thành no-op và
+test tưởng là blur không chốt số. `.click()` lên nút X khi có scrim thì không đóng
+sheet như chạm thật. Và toạ độ `getBoundingClientRect` KHÁC hệ toạ độ click của
+browser tool (~1.39×) nên bấm lệch sang dòng bên cạnh. Dùng chạm thật cho những gì
+liên quan tới focus và toạ độ; JS click chỉ dùng cho điều hướng không bị che.
 
 ## Những hướng đã cân nhắc và loại bỏ
 

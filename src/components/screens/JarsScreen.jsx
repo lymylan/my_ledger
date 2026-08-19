@@ -59,10 +59,17 @@ export function CatPage({st,j,ym,d,onEdit,openTx}){
    PHẢI là component chứ không thể là hàm render nội bộ: nó cần useDragList RIÊNG
    cho danh sách category của chính nó, mà hook thì không gọi được trong .map().
    Đúng luôn với rule react/no-unstable-nested-components — xem README §4. */
-export function AccountReorderCard({a,i,jars,accDl,onReorderJars}){
+export function AccountReorderCard({a,i,jars,accDl,on,onToggle,onReorderJars}){
   const jarDl=useDragList(jars.map(j=>j.id),onReorderJars);
+  /* Đang được nắm thì thu về một dòng, bất kể đang mở hay gập: một card 5 category
+     cao gần nửa màn hình, kéo nó đi rất khó ngắm. Gập lại xong danh sách cũng
+     đóng khít nên đường kéo ngắn hẳn.
+     Layout đổi giữa lúc kéo là chuyện có thật, và useDragList xử lý bằng cách hoãn
+     phép đo rect tới frame đầu — tức là ĐO SAU khi đã gập. Đừng đo trong
+     pointerdown. */
+  const lifted=accDl.dragging===i;
   return (
-    <div {...accDl.row(i,'card')}>
+    <div {...accDl.row(i,'card'+(jarDl.active?' dl-open':''))}>
       <div className="ro-acc">
         <span {...accDl.handle(i)} aria-label={'Reorder '+a.name}><I n="grip" s={17}/></span>
         <div className="dot" style={{background:accColor(a),color:'#fff'}}>
@@ -71,18 +78,26 @@ export function AccountReorderCard({a,i,jars,accDl,onReorderJars}){
           <div className="row-t">{a.name}</div>
           <div className="row-s">{jars.length} categor{jars.length===1?'y':'ies'}</div>
         </div>
+        {/* Cùng state openAcc với chế độ thường, nên gập/mở không bị đặt lại khi
+            vào/ra chế độ sắp xếp. Gập hết lại là cách dễ nhất để xếp nhiều
+            account: các card thu về chiều cao đều nhau, kéo ngắn hơn nhiều. */}
+        <button className="trail" aria-expanded={on}
+          aria-label={on?'Collapse categories':'Expand categories'}
+          onClick={onToggle}><I n={on?'up':'dn'} s={17}/></button>
       </div>
-      <div {...jarDl.box}>
-        {jars.map((j,k)=>(
-          <div key={j.id} {...jarDl.row(k)}>
-            <div className="ro-cat">
-              <span {...jarDl.handle(k)} aria-label={'Reorder '+j.name}><I n="grip" s={15}/></span>
-              <div className="row-t grow" style={{minWidth:0}}>{j.name}</div>
+      {on && !lifted && <>
+        <div {...jarDl.box}>
+          {jars.map((j,k)=>(
+            <div key={j.id} {...jarDl.row(k)}>
+              <div className="ro-cat">
+                <span {...jarDl.handle(k)} aria-label={'Reorder '+j.name}><I n="grip" s={15}/></span>
+                <div className="row-t grow" style={{minWidth:0}}>{j.name}</div>
+              </div>
             </div>
-          </div>
-        ))}
-      </div>
-      {jars.length===0 && <div className="ro-hint">No categories in this account yet</div>}
+          ))}
+        </div>
+        {jars.length===0 && <div className="ro-hint">No categories in this account yet</div>}
+      </>}
     </div>
   );
 }
@@ -143,15 +158,20 @@ export function JarsScreen({st,set,ym,toast,openTx,catId,setCatId,openClose}){
     </div>
 
     <div className="sec-h"><h2>Accounts &amp; categories</h2>
-      {st.accounts.length>0 && <button className={'sec-ic'+(reorder?' on':'')}
-        aria-pressed={reorder} title={reorder?'Done':'Reorder'}
-        aria-label={reorder?'Done reordering':'Reorder accounts and categories'}
-        onClick={()=>setReorder(v=>!v)}><I n={reorder?'check':'reorder'} s={15}/></button>}
-      {!reorder && <button className="act" onClick={()=>{setAccForm({name:'',kind:'bank',color:ACC_COLORS[0],icon:'bank',cats:[]})}}>+ Add account</button>}</div>
+      {/* Icon ↑↓ chỉ là đường VÀO chế độ sắp xếp. Đường RA là nút text ở mép
+          phải, chiếm đúng chỗ của "+ Add account" — mục tiêu bấm to hơn hẳn
+          một icon 22px, và hai nút không bao giờ cùng xuất hiện nên không tranh
+          chỗ. */}
+      {st.accounts.length>0 && !reorder && <button className="sec-ic"
+        title="Reorder" aria-label="Reorder accounts and categories"
+        onClick={()=>setReorder(true)}><I n="reorder" s={15}/></button>}
+      {reorder
+        ? <button className="act" onClick={()=>setReorder(false)}>Apply</button>
+        : <button className="act" onClick={()=>{setAccForm({name:'',kind:'bank',color:ACC_COLORS[0],icon:'bank',cats:[]})}}>+ Add account</button>}</div>
 
     {reorder && <p className="mut" style={{fontSize:12.5,margin:'-2px 2px 10px'}}>
       Drag the handles to reorder. Accounts move among themselves; categories move
-      inside their own account.</p>}
+      inside their own account. Collapse an account to move it further in one go.</p>}
 
     {st.accounts.length===0 && <div className="card empty"><b>No accounts yet</b>
       Add a bank account or cash wallet to start splitting money into categories.</div>}
@@ -222,6 +242,7 @@ export function JarsScreen({st,set,ym,toast,openTx,catId,setCatId,openClose}){
       {st.accounts.map((a,i)=>(
         <AccountReorderCard key={a.id} a={a} i={i} accDl={accDl}
           jars={st.jars.filter(j=>j.accountId===a.id)}
+          on={openAcc.includes(a.id)} onToggle={()=>toggle(a.id)}
           onReorderJars={ids=>reorderJars(a.id,ids)}/>
       ))}
     </div>}

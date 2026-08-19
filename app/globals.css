@@ -134,8 +134,17 @@ button{cursor:pointer;border:none;background:none;padding:0}
 .figs .dlt{font-size:11px;font-weight:600;margin-top:1px}
 .cat-row .row-s{line-height:1.3}
 .cat-row .vessel{margin-top:6px}
-.acc-edit{flex:1;min-width:0;display:flex;align-items:center;gap:11px;padding:14px 6px 14px 14px;text-align:left}
-.acc-toggle{flex:none;display:flex;align-items:center;gap:8px;padding:14px 14px 14px 6px}
+/* Phân chia vùng chạm của dòng account. Trước đây .acc-edit là flex:1 nên nó
+   chiếm hết khoảng trắng giữa "N categories" và số tiền — chạm vào chỗ trống đó ra
+   Edit account, không ai đoán được.
+
+   Giờ:  [icon | tên | N categories] = Edit, bó sát nội dung
+         [khoảng trắng → số tiền → chevron] = gập/mở
+
+   flex-shrink của hai bên KHÁC nhau có chủ ý: tên account dài thì chính nó bị
+   ellipsis (0 1 auto), số tiền không bao giờ bị cắt (1 0 auto). */
+.acc-edit{flex:0 1 auto;min-width:0;display:flex;align-items:center;gap:11px;padding:14px 6px 14px 14px;text-align:left}
+.acc-toggle{flex:1 0 auto;display:flex;align-items:center;justify-content:flex-end;gap:8px;padding:14px 14px 14px 6px}
 .acc-name{display:flex;align-items:center;gap:5px;min-width:0}
 .acc-name .row-t{min-width:0;overflow:hidden;text-overflow:ellipsis}
 .acc-ic{color:var(--muted);display:inline-flex;flex:none}
@@ -303,23 +312,30 @@ table.t td.r,table.t th.r{text-align:right}
 :focus-visible{outline:2px solid var(--indigo);outline-offset:2px;border-radius:6px}
 
 /* ---------- reorder mode (JarsScreen) ---------- */
-/* Nút bật/tắt trong .sec-h. align-self:center vì .sec-h dùng align-items:baseline,
-   icon căn theo baseline sẽ lệch xuống. */
-.sec-h .sec-ic{margin-left:auto;align-self:center;width:28px;height:28px;border-radius:999px;
-  display:grid;place-items:center;color:var(--ink2);border:1px solid var(--line);background:var(--card)}
-.sec-h .sec-ic:hover{background:var(--line2)}
-.sec-h .sec-ic.on{background:var(--indigo);border-color:var(--indigo);color:#fff}
-/* Đè margin-left:auto của .act khi nó đứng sau nút icon — nếu không thì hai
-   phần tử auto-margin chia nhau khoảng trống và nút icon không sát phải. */
-.sec-h .sec-ic + .act{margin-left:10px}
+/* Nút bật/tắt, nằm ngay cạnh tiêu đề — icon trần, không viền không nền.
+   align-self:center vì .sec-h dùng align-items:baseline, icon căn theo baseline
+   sẽ lệch xuống. Không đặt margin-left:auto: để .act (+ Add account) giữ nguyên
+   auto-margin của nó và ở lại mép phải.
+   ::after mở rộng vùng chạm ra 9px mỗi phía — cùng cách .trail làm, vì 22px là
+   quá nhỏ để chạm chính xác trên mobile. */
+.sec-h .sec-ic{align-self:center;width:22px;height:22px;display:grid;place-items:center;
+  color:var(--muted);position:relative}
+.sec-h .sec-ic::after{content:'';position:absolute;inset:-9px}
+.sec-h .sec-ic:hover{color:var(--ink2)}
 
-.dl-row{position:relative}
-/* Dòng đang kéo nổi lên TẠI CHỖ, không đi theo ngón tay — vạch đích mới là thứ
-   cho biết nó sẽ hạ xuống đâu. Nhờ vậy không cần transform, nên không bị
-   .card{overflow:hidden} cắt mất bóng, và dòng cao thấp khác nhau đều ổn. */
+/* CHỈ transition box-shadow, KHÔNG transition transform: transform đổi mỗi
+   pointermove, có transition là dòng kéo lết sau ngón tay. */
+.dl-row{position:relative;transition:box-shadow .16s ease}
+/* Dòng đang kéo đi theo ngón tay (translateY inline, xem useDragList) + nổi lên
+   bằng bóng và scale 1.02. transform đặt inline nên KHÔNG khai ở đây — inline sẽ
+   ghi đè, khai ở đây chỉ thành rule chết gây nhầm. */
 .dl-row.dragging{z-index:20;background:var(--card);border-radius:var(--r-s);
-  box-shadow:0 10px 24px rgba(20,22,31,.16)}
+  box-shadow:0 14px 30px rgba(20,22,31,.22);will-change:transform}
 .card.dl-row.dragging{border-radius:var(--r)}
+/* .card có overflow:hidden, nên dòng category kéo ra ngoài phạm vi card sẽ bị
+   cắt mất. Mở overflow trong lúc list con của chính card đó đang kéo. */
+.card.dl-open{overflow:visible}
+@media (prefers-reduced-motion:reduce){.dl-row{transition:none}}
 /* Vạch đích. Vẽ bằng ::before/::after nên không chen vào layout — dòng không
    nhảy khi vạch xuất hiện. */
 .dl-row.drop-before::before,
@@ -333,10 +349,16 @@ table.t td.r,table.t th.r{text-align:right}
   cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none}
 .grip:active{cursor:grabbing;color:var(--indigo)}
 
-.ro-acc{display:flex;align-items:center;gap:10px;padding:11px 8px 11px 4px}
+.ro-acc{display:flex;align-items:center;gap:10px;padding:11px 12px 11px 4px}
 .ro-acc .row-t{font-size:15px;font-weight:700;letter-spacing:-.015em}
 .ro-cat{display:flex;align-items:center;gap:10px;padding:9px 12px 9px 22px;
   border-top:1px solid var(--line2)}
 .ro-cat .row-t{font-size:14px;font-weight:600}
 .ro-hint{padding:9px 14px 9px 26px;border-top:1px solid var(--line2);
   font-size:12px;color:var(--muted)}
+
+/* Số dư còn lại dưới ô chọn category trong sheet ghi giao dịch. */
+.jar-left{display:flex;flex-wrap:wrap;align-items:baseline;gap:3px 10px;margin-top:7px;
+  font-size:12px;color:var(--muted);line-height:1.35}
+.jar-left b{font-weight:700;color:var(--ink2);font-variant-numeric:tabular-nums}
+.jar-left b.neg{color:var(--out)}
