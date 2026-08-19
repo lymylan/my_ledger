@@ -622,7 +622,19 @@ mọi path khác    →  chặn hết
 ### Đổi sang project khác
 
 ```bash
-npx firebase-tools apps:sdkconfig WEB <appId> --project <projectId>
+npx -y firebase-tools@latest apps:sdkconfig WEB <appId> --project <projectId>
 ```
 
 Điền vào `.env.local`, sửa `.firebaserc`, rồi `npm run rules:deploy`.
+
+### Deploy Firebase Hosting Classic
+
+App được static export vào `out/`, sau đó chỉ deploy target Hosting của project
+đang chọn trong `.firebaserc`:
+
+```bash
+npm run deploy:hosting
+```
+
+Lệnh trên tự chạy production build trước khi deploy. Nó không deploy lại
+Firestore Rules; khi cần cập nhật Rules, tiếp tục dùng `npm run rules:deploy`.
